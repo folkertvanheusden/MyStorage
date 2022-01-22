@@ -1,0 +1,30 @@
+# (C) 2022 by folkert van heusden <mail@vanheusden.com>, released under Apache License v2.0
+cmake_minimum_required(VERSION 3.9.4)
+
+project(mystorage VERSION 6.0)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
+
+add_definitions("-D_FILE_OFFSET_BITS=64")
+
+set(CMAKE_BUILD_TYPE Debug)
+
+add_compile_options(-Wall -pedantic)
+
+add_executable(mystorage
+	block.cpp
+	error.cpp
+	logging.cpp
+	nbd.cpp
+	net.cpp
+	sector.cpp
+	socket_listener.cpp
+	socket_listener_ipv4.cpp
+	str.cpp
+	)
+
+set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+find_package(Threads)
+target_link_libraries(mystorage Threads::Threads)
