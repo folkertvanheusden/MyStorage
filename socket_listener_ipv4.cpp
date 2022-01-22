@@ -50,7 +50,7 @@ int socket_listener_ipv4::wait_for_client()
 	for(;;) {
 		cfd = accept(fd, nullptr, nullptr);
 		if (cfd != -1) {
-			dolog(ll_info, "socket_listener_ipv4: connected to \"%s\"", get_endpoint_name(cfd).c_str());
+			dolog(ll_info, "socket_listener_ipv4: connected to \"%s\" on fd %d", get_endpoint_name(cfd).c_str(), cfd);
 			break;
 		}
 
