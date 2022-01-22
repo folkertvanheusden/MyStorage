@@ -19,7 +19,7 @@ size_t block::get_size() const
 	return len;
 }
 
-void block::get_data(uint8_t *const target)
+void block::get_data(uint8_t *const target) const
 {
 	memcpy(target, data, len);
 }

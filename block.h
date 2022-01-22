@@ -14,5 +14,5 @@ public:
 
 	size_t get_size() const;
 
-	void get_data(uint8_t *const target);
+	void get_data(uint8_t *const target) const;
 };
