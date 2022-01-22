@@ -1,10 +1,20 @@
+#include <errno.h>
+#include <fcntl.h>
+#include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <unistd.h>
+
+#include "logging.h"
+#include "time.h"
+
 
 static const char *logfile = strdup("/tmp/myip.log");
-log_level_t log_level_file = warning;
-log_level_t log_level_screen = warning;
+log_level_t log_level_file = ll_warning;
+log_level_t log_level_screen = ll_warning;
 static FILE *lfh = nullptr;
 static int lf_uid = 0, lf_gid = 0;
 
