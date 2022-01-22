@@ -3,7 +3,8 @@
 #include <stdlib.h>
 #include <string>
 
-#include "logging"
+#include "logging.h"
+
 
 std::string myformat(const char *const fmt, ...)
 {

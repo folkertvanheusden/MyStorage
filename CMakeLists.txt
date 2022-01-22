@@ -22,6 +22,7 @@ add_executable(mystorage
 	socket_listener.cpp
 	socket_listener_ipv4.cpp
 	str.cpp
+	time.cpp
 	)
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
