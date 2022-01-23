@@ -19,6 +19,10 @@ socket_listener_ipv4::socket_listener_ipv4(const char *const listen_addr, const 
 	if (fd == -1)
 		error_exit(true, "socket_listener_ipv4: failed to create socket");
 
+	int reuse_addr = 1;
+	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse_addr, sizeof(reuse_addr)) == -1)
+		error_exit(true, "socket_listener_ipv4: failed to set \"re-use address\"");
+
 	struct sockaddr_in servaddr { 0 };
 	servaddr.sin_family = AF_INET;
 	servaddr.sin_port = htons(listen_port);
@@ -36,10 +40,6 @@ socket_listener_ipv4::socket_listener_ipv4(const char *const listen_addr, const 
 	int qlen = SOMAXCONN;
 	if (setsockopt(fd, SOL_TCP, TCP_FASTOPEN, &qlen, sizeof(qlen)) == -1)
 		error_exit(true, "socket_listener_ipv4: failed to enable \"tcp fastopen\"");
-
-	int reuse_addr = 1;
-	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse_addr, sizeof(reuse_addr)) == -1)
-		error_exit(true, "socket_listener_ipv4: failed to set \"re-use address\"");
 }
 
 socket_listener_ipv4::~socket_listener_ipv4()
