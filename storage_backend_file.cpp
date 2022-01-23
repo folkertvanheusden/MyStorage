@@ -98,7 +98,7 @@ bool storage_backend_file::trim_zero(const offset_t offset, const uint32_t len, 
 	*err = 0;
 
 #ifdef linux
-	if (fallocate(fd, (trim ? FALLOC_FL_PUNCH_HOLE : FALLOC_FL_ZERO_RANGE) | FALLOC_FL_KEEP_SIZE, offset, size) == -1) {
+	if (fallocate(fd, (trim ? FALLOC_FL_PUNCH_HOLE : FALLOC_FL_ZERO_RANGE) | FALLOC_FL_KEEP_SIZE, offset, len) == -1) {
 		dolog(ll_error, "storage_backend_file::trim: failed to trim (%zu bytes) at offset %lu", len, offset);
 		*err = errno;
 	}
