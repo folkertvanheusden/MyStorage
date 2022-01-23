@@ -7,7 +7,7 @@
 #include "storage_backend_file.h"
 
 
-storage_backend_file::storage_backend_file(const std::string & file)
+storage_backend_file::storage_backend_file(const std::string & id, const std::string & file) : storage_backend(id)
 {
 	fd = open(file.c_str(), O_RDWR);
 	if (fd == -1)

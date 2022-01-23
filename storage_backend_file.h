@@ -12,7 +12,7 @@ private:
 	offset_t size { 0 };
 
 public:
-	storage_backend_file(const std::string & file);
+	storage_backend_file(const std::string & id, const std::string & file);
 	virtual ~storage_backend_file();
 
 	offset_t get_size() const override;
