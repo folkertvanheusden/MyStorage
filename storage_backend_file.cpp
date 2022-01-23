@@ -28,12 +28,12 @@ storage_backend_file::~storage_backend_file()
 	close(fd);
 }
 
-uint64_t storage_backend_file::get_size() const
+offset_t storage_backend_file::get_size() const
 {
 	return size;
 }
 
-block * storage_backend_file::get_data(const uint64_t offset, const uint32_t size)
+block * storage_backend_file::get_data(const offset_t offset, const uint32_t size)
 {
 	if (size == 0)
 		error_exit(true, "storage_backend_file::get_data: requesting block of 0 bytes in size");
@@ -48,7 +48,7 @@ block * storage_backend_file::get_data(const uint64_t offset, const uint32_t siz
 	return new block(buffer, size);
 }
 
-void storage_backend_file::put_data(const uint64_t offset, const block & s)
+void storage_backend_file::put_data(const offset_t offset, const block & s)
 {
 	const uint8_t *p = s.get_data();
 	const size_t len = s.get_size();
