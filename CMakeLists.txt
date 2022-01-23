@@ -14,6 +14,9 @@ add_compile_options(-Wall -pedantic)
 
 add_executable(mystorage
 	block.cpp
+	compresser.cpp
+	compresser_lzo.cpp
+	compresser_zlib.cpp
 	error.cpp
 	io.cpp
 	logging.cpp
@@ -32,3 +35,15 @@ set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads)
 target_link_libraries(mystorage Threads::Threads)
+
+include(FindPkgConfig)
+
+pkg_check_modules(ZLIB REQUIRED zlib)
+target_link_libraries(mystorage ${ZLIB_LIBRARIES})
+target_include_directories(mystorage PUBLIC ${ZLIB_INCLUDE_DIRS})
+target_compile_options(mystorage PUBLIC ${ZLIB_CFLAGS_OTHER})
+
+pkg_check_modules(LZO2 REQUIRED lzo2)
+target_link_libraries(mystorage ${LZO2_LIBRARIES})
+target_include_directories(mystorage PUBLIC ${LZO2_INCLUDE_DIRS})
+target_compile_options(mystorage PUBLIC ${LZO2_CFLAGS_OTHER})
