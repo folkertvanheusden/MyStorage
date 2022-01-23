@@ -87,10 +87,10 @@ void dolog(const log_level_t ll, const char *fmt, ...)
 	va_end(ap);
 
 	if (ll >= log_level_file)
-		fprintf(lfh, "%s%s", ts_str, str);
+		fprintf(lfh, "%s%s\n", ts_str, str);
 
 	if (ll >= log_level_screen)
-		printf("%s%s", ts_str, str);
+		printf("%s%s\n", ts_str, str);
 
 	free(str);
 	free(ts_str);
