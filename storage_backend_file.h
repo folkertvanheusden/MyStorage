@@ -16,9 +16,8 @@ public:
 	virtual ~storage_backend_file();
 
 	offset_t get_size() const override;
-	block * get_data(const offset_t offset, const uint32_t size) override;
-	void put_data(const offset_t offset, const block & b) override;
-	void put_data(const offset_t offset, const std::vector<uint8_t> & d);
+	void get_data(const offset_t offset, const uint32_t size, block **const b, int *const err) override;
+	void put_data(const offset_t offset, const block & b, int *const err) override;
 
 	void fsync() override;
 };

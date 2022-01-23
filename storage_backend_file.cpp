@@ -37,31 +37,51 @@ offset_t storage_backend_file::get_size() const
 	return size;
 }
 
-block * storage_backend_file::get_data(const offset_t offset, const uint32_t size)
+void storage_backend_file::get_data(const offset_t offset, const uint32_t size, block **const b, int *const err)
 {
-	if (size == 0)
-		error_exit(true, "storage_backend_file::get_data: requesting block of 0 bytes in size");
+	*err = 0;
+	*b = nullptr;
 
-	if (lseek(fd, offset, SEEK_SET) == -1)
-		error_exit(true, "storage_backend_file::get_data: failed to seek in file to offset %ld", offset);
+	if (size == 0) {
+		*err = EINVAL;
+		dolog(ll_error, "storage_backend_file::get_data: requesting block of 0 bytes in size");
+		return;
+	}
+
+	if (lseek(fd, offset, SEEK_SET) == -1) {
+		*err = errno;
+		dolog(ll_error, "storage_backend_file::get_data: failed to seek in file to offset %ld", offset);
+		return;
+	}
 
 	uint8_t *buffer = static_cast<uint8_t *>(malloc(size));
-	if (READ(fd, buffer, sizeof buffer) != sizeof buffer)
-		error_exit(true, "storage_backend_file::get_data: failed to read from file");
+	if (READ(fd, buffer, size) != size) {
+		*err = errno;
+		dolog(ll_error, "storage_backend_file::get_data: failed to read from file");
+		return;
+	}
 
-	return new block(buffer, size);
+	*b = new block(buffer, size);
 }
 
-void storage_backend_file::put_data(const offset_t offset, const block & s)
+void storage_backend_file::put_data(const offset_t offset, const block & s, int *const err)
 {
 	const uint8_t *p = s.get_data();
-	const size_t len = s.get_size();
+	const ssize_t len = s.get_size();
 
-	if (lseek(fd, offset, SEEK_SET) == -1)
-		error_exit(true, "storage_backend_file::put_data: failed to seek in file to offset %ld", offset);
+	*err = 0;
 
-	if (write(fd, p, len) == -1)
-		error_exit(true, "storage_backend_file::put_data: failed to write (%zu bytes) to file at offset %lu", len, offset);
+	if (lseek(fd, offset, SEEK_SET) == -1) {
+		*err = errno;
+		dolog(ll_error, "storage_backend_file::put_data: failed to seek in file to offset %ld", offset);
+		return;
+	}
+
+	if (WRITE(fd, p, len) != len) {
+		*err = errno;
+		dolog(ll_error, "storage_backend_file::put_data: failed to write (%zu bytes) to file at offset %lu", len, offset);
+		return;
+	}
 }
 
 void storage_backend_file::fsync()
