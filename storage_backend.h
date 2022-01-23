@@ -25,5 +25,5 @@ public:
 
 	virtual void fsync() = 0;
 
-	virtual bool trim(const offset_t offset, const uint32_t len, int *const err) = 0;
+	virtual bool trim_zero(const offset_t offset, const uint32_t len, const bool trim, int *const err) = 0;
 };

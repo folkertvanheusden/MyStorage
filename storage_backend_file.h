@@ -21,5 +21,5 @@ public:
 
 	void fsync() override;
 
-	bool trim(const offset_t offset, const uint32_t len, int *const err) override;
+	bool trim_zero(const offset_t offset, const uint32_t len, const bool trim, int *const err) override;
 };

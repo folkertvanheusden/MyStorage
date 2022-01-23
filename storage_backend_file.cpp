@@ -93,12 +93,12 @@ void storage_backend_file::fsync()
 		error_exit(true, "storage_backend_file::fsync: failed to sync data to disk");
 }
 
-bool storage_backend_file::trim(const offset_t offset, const uint32_t len, int *const err)
+bool storage_backend_file::trim_zero(const offset_t offset, const uint32_t len, const bool trim, int *const err)
 {
 	*err = 0;
 
 #ifdef linux
-	if (fallocate(fd, FALLOC_FL_ZERO_RANGE, offset, size) == -1) {
+	if (fallocate(fd, (trim ? FALLOC_FL_PUNCH_HOLE : FALLOC_FL_ZERO_RANGE) | FALLOC_FL_KEEP_SIZE, offset, size) == -1) {
 		dolog(ll_error, "storage_backend_file::trim: failed to trim (%zu bytes) at offset %lu", len, offset);
 		*err = errno;
 	}

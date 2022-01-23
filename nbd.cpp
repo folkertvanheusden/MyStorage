@@ -400,7 +400,7 @@ void nbd::handle_client(const int fd)
 
 				case NBD_CMD_TRIM:
 				case NBD_CMD_WRITE_ZEROES:
-					storage_backends.at(current_sb)->trim(offset.value(), length.value(), &err);
+					storage_backends.at(current_sb)->trim_zero(offset.value(), length.value(), type.value() == NBD_CMD_TRIM, &err);
 
 					if (send_cmd_reply(fd, err, handle.value(), { }) == false) {
 						dolog(ll_info, "nbd::handle_client: failed transmitting NBD_CMD_TRIM or NBD_CMD_WRITE_ZEROES reply");
