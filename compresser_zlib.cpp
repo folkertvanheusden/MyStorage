@@ -69,11 +69,5 @@ bool compresser_zlib::decompress(const uint8_t *const in, const size_t in_len, u
 		return false;
 	}
 
-	if (src_len != in_len - 4) {
-		dolog(ll_error, "compresser_zlib::decompress: uncompress failed, not all input data was used");
-		free(*out);
-		return false;
-	}
-
 	return true;
 }
