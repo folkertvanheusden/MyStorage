@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <optional>
 #include <thread>
 #include <unistd.h>
@@ -159,15 +160,22 @@ std::string uint_vector_to_string(const std::vector<uint8_t> & in)
 	return std::string(reinterpret_cast<const char *>(in.data()), in.size());
 }
 
-std::optional<size_t> nbd::find_sb(const std::string & id)
+std::optional<size_t> nbd::find_storage_backend_by_id(const std::string & id)
 {
-	if (id.empty())
+	dolog(ll_info, "nbd::find_storage_backend_by_id: selecting storage \"%s\"", id.c_str());
+
+	if (id.empty()) {
+		dolog(ll_info, "nbd::find_storage_backend_by_id: returning default");
+
 		return 0;  // default storage
+	}
 
 	for(size_t idx=0; idx<storage_backends.size(); idx++) {
 		if (storage_backends.at(idx)->get_identifier() == id)
 			return idx;
 	}
+
+	dolog(ll_warning, "nbd::find_storage_backend_by_id: storage \"%s\" not found", id.c_str());
 
 	return { };
 }
@@ -235,10 +243,12 @@ void nbd::handle_client(const int fd)
 				}
 			}
 
+			dolog(ll_debug, "nbd::handle_client: option %x, data_len %d", option.value(), data_len.value());
+
 			switch(option.value())  {
 				case NBD_OPT_EXPORT_NAME:
 					{
-						auto sel_sb = find_sb(uint_vector_to_string(option_data.value()));
+						auto sel_sb = find_storage_backend_by_id(uint_vector_to_string(option_data.value()));
 
 						if (sel_sb.has_value() == false) {
 							send_option_reply(fd, option.value(), NBD_REP_ERR_UNSUP, { });
@@ -259,6 +269,23 @@ void nbd::handle_client(const int fd)
 
 				case NBD_OPT_GO:
 					{
+						uint32_t export_name_len = (option_data.value()[0] << 24) | (option_data.value()[1] << 16) | (option_data.value()[2] << 8) | option_data.value()[3];
+
+						std::vector<uint8_t> name;
+						for(size_t idx=0; idx<export_name_len; idx++)
+							name.push_back(option_data.value()[4 + idx]);
+
+						std::string name_str = uint_vector_to_string(name);
+						auto sel_sb = find_storage_backend_by_id(name_str);
+
+						if (sel_sb.has_value() == false) {
+							dolog(ll_info, "nbd::handle_client: export %s not known", name_str.c_str());
+							state = nbd_st_terminate;
+							break;
+						}
+
+						current_sb = sel_sb.value();
+
 						std::vector<uint8_t> msg;
 						add_uint16(msg, NBD_INFO_EXPORT);
 						add_uint64(msg, storage_backends.at(current_sb)->get_size());
