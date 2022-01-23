@@ -38,6 +38,8 @@ bool compresser_lzo::compress(const uint8_t *const in, const size_t in_len, uint
                 return false;
         }
 
+	*out_len += 4;  // size
+
 	return true;
 }
 

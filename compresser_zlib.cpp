@@ -37,7 +37,7 @@ bool compresser_zlib::compress(const uint8_t *const in, const size_t in_len, uin
 		return false;
 	}
 
-	*out_len = dest_len;
+	*out_len = dest_len + 4;
 
 	return true;
 }
