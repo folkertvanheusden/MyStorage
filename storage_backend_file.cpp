@@ -4,6 +4,7 @@
 #include <sys/types.h>
 
 #include "error.h"
+#include "logging.h"
 #include "storage_backend_file.h"
 
 
@@ -20,7 +21,9 @@ storage_backend_file::storage_backend_file(const std::string & id, const std::st
 	if (st.st_size & 4095)
 		error_exit(true, "storage_backend_file: file not a multiple of 4096 in size (%ld)", st.st_size);
 
-	size = st.st_size / 4096;
+	size = st.st_size;
+
+	dolog(ll_debug, "storage_backend_file: size is %zu bytes", size);
 }
 
 storage_backend_file::~storage_backend_file()
