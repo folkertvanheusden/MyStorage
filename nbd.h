@@ -16,6 +16,7 @@ private:
 
 	void handle_client(const int fd);
 	bool send_option_reply(const int fd, const uint32_t opt, const uint32_t reply_type, const std::vector<uint8_t> & data);
+	bool send_cmd_reply(const int fd, const uint32_t err, const uint64_t handle, const std::vector<uint8_t> & data);
 	std::optional<size_t> find_sb(const std::string & id);
 
 public:
