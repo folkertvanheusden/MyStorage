@@ -23,16 +23,16 @@ bool compresser_lzo::compress(const uint8_t *const in, const size_t in_len, uint
 	}
 
 	unsigned long temp_len = in_len + 128 /* TODO: what is the maximum overhead for uncompressible data? */ + 4 /* original size storage */;
-	uint8_t *temp = reinterpret_cast<uint8_t *>(malloc(temp_len));
+	*out = reinterpret_cast<uint8_t *>(malloc(temp_len));
 
-	temp[0] = in_len >> 24;
-	temp[1] = in_len >> 16;
-	temp[2] = in_len >>  8;
-	temp[3] = in_len;
+	(*out)[0] = in_len >> 24;
+	(*out)[1] = in_len >> 16;
+	(*out)[2] = in_len >>  8;
+	(*out)[3] = in_len;
 
         uint8_t buffer[LZO1_MEM_COMPRESS] { 0 };
 
-        int rc = lzo1_compress(in, in_len, &temp[4], out_len, buffer);
+        int rc = lzo1_compress(in, in_len, &(*out)[4], out_len, buffer);
         if (rc != LZO_E_OK) {
                 dolog(ll_error, "compresser_lzo::compress: lzo1_compress failed (%d)", rc);
                 return false;
@@ -52,11 +52,10 @@ bool compresser_lzo::decompress(const uint8_t *const in, const size_t in_len, ui
 
 	*out = reinterpret_cast<uint8_t *>(malloc(*out_len));
 
-	uint8_t buffer[LZO1_MEM_DECOMPRESS] { };
-
-	int rc = lzo1_decompress(in, in_len, *out, out_len, buffer);
+	int rc = lzo1_decompress(&in[4], in_len - 4, *out, out_len, nullptr);
 	if (rc != LZO_E_OK) {
 		dolog(ll_error, "compresser_lzo::compress: lzo1_compress failed (%d)", rc);
+		free(*out);
 		return false;
 	}
 
