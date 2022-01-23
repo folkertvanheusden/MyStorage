@@ -20,4 +20,6 @@ public:
 	void put_data(const offset_t offset, const block & b, int *const err) override;
 
 	void fsync() override;
+
+	bool trim(const offset_t offset, const uint32_t len, int *const err) override;
 };

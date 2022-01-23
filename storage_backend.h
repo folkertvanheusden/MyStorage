@@ -24,4 +24,6 @@ public:
 	void put_data(const offset_t offset, const std::vector<uint8_t> & d, int *const err);
 
 	virtual void fsync() = 0;
+
+	virtual bool trim(const offset_t offset, const uint32_t len, int *const err) = 0;
 };

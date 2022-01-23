@@ -14,10 +14,15 @@
 
 #define NBD_CMD_DISC		2
 #define NBD_CMD_FLUSH 		3
+#define NBD_FLAG_CAN_MULTI_CONN 8
 #define NBD_CMD_READ		0
+#define NBD_CMD_TRIM		4
 #define NBD_CMD_WRITE		1
+#define NBD_CMD_WRITE_ZEROES	6
 #define NBD_FLAG_C_NO_ZEROES    (1 << 1)
 #define NBD_FLAG_SEND_FLUSH	(1 << 2)
+#define NBD_FLAG_SEND_TRIM      (1 << 5)
+#define NBD_FLAG_SEND_WRITE_ZEROES (1 << 6)
 #define NBD_INFO_EXPORT		0
 #define NBD_OPT_EXPORT_NAME	1
 #define NBD_OPT_GO		7
@@ -128,20 +133,20 @@ bool nbd::send_option_reply(const int fd, const uint32_t opt, const uint32_t rep
 
 bool nbd::send_cmd_reply(const int fd, const uint32_t err, const uint64_t handle, const std::vector<uint8_t> & data)
 {
+	std::vector<uint8_t> reply;
+
 	add_uint32(reply, 0x67446698);  // magic
 	add_uint32(reply, err);  // error
 	add_uint64(reply, handle);
 
 	if (WRITE(fd, reply.data(), reply.size()) != ssize_t(reply.size())) {
 		dolog(ll_info, "nbd::send_cmd_reply: failed transmitting header");
-		state = nbd_st_terminate;
 		return false;
 	}
 
 	if (data.empty() == false) {
 		if (WRITE(fd, data.data(), data.size()) != ssize_t(data.size())) {
 			dolog(ll_info, "nbd::send_cmd_reply: failed transmitting data");
-			state = nbd_st_terminate;
 			return false;
 		}
 	}
@@ -257,7 +262,7 @@ void nbd::handle_client(const int fd)
 						std::vector<uint8_t> msg;
 						add_uint16(msg, NBD_INFO_EXPORT);
 						add_uint64(msg, storage_backends.at(current_sb)->get_size());
-						add_uint16(msg, NBD_FLAG_SEND_FLUSH | 0);
+						add_uint16(msg, NBD_FLAG_SEND_FLUSH | NBD_FLAG_SEND_TRIM | NBD_FLAG_SEND_WRITE_ZEROES | NBD_FLAG_CAN_MULTI_CONN);
 
 						if (send_option_reply(fd, option.value(), NBD_REP_INFO, msg) == false) {
 							dolog(ll_info, "nbd::handle_client: failed transmitting NBD_REP_INFO");
@@ -362,7 +367,7 @@ void nbd::handle_client(const int fd)
 				case NBD_CMD_WRITE:
 					storage_backends.at(current_sb)->put_data(offset.value(), data.value(), &err);
 
-					if (send_cmd_reply(fd, err, handle, { }) == false) {
+					if (send_cmd_reply(fd, err, handle.value(), { }) == false) {
 						dolog(ll_info, "nbd::handle_client: failed transmitting NBD_CMD_WRITE reply");
 						state = nbd_st_terminate;
 						break;
@@ -373,7 +378,7 @@ void nbd::handle_client(const int fd)
 				case NBD_CMD_FLUSH:
 					storage_backends.at(current_sb)->fsync();
 
-					if (send_cmd_reply(fd, 0, handle, { }) == false) {
+					if (send_cmd_reply(fd, 0, handle.value(), { }) == false) {
 						dolog(ll_info, "nbd::handle_client: failed transmitting NBD_CMD_FLUSH reply");
 						state = nbd_st_terminate;
 						break;
@@ -385,12 +390,24 @@ void nbd::handle_client(const int fd)
 					dolog(ll_info, "nbd::handle_client: client asked to terminate");
 					state = nbd_st_terminate;
 
-					if (send_cmd_reply(fd, 0, handle, { }) == false) {
+					if (send_cmd_reply(fd, 0, handle.value(), { }) == false) {
 						dolog(ll_info, "nbd::handle_client: failed transmitting NBD_CMD_DISC reply");
 						state = nbd_st_terminate;
 						break;
 					}
 	
+					break;
+
+				case NBD_CMD_TRIM:
+				case NBD_CMD_WRITE_ZEROES:
+					storage_backends.at(current_sb)->trim(offset.value(), length.value(), &err);
+
+					if (send_cmd_reply(fd, err, handle.value(), { }) == false) {
+						dolog(ll_info, "nbd::handle_client: failed transmitting NBD_CMD_TRIM or NBD_CMD_WRITE_ZEROES reply");
+						state = nbd_st_terminate;
+						break;
+					}
+
 					break;
 
 				default:
