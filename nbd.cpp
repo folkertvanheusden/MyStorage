@@ -275,7 +275,7 @@ void nbd::handle_client(const int fd)
 					break;
 			}
 
-			printf("flags: %x, type: %d, offset: %lu, length: %u\n", flags.value(), type.value(), offset.value(), length.value());
+			dolog(ll_debug, "flags: %x, type: %d, offset: %lu, length: %u", flags.value(), type.value(), offset.value(), length.value());
 
 			std::vector<uint8_t> reply;
 			block *b = nullptr;
