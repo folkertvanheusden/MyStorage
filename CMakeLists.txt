@@ -26,6 +26,7 @@ add_executable(mystorage
 	socket_listener.cpp
 	socket_listener_ipv4.cpp
 	storage_backend.cpp
+	storage_backend_compressed_dir.cpp
 	storage_backend_file.cpp
 	str.cpp
 	time.cpp
