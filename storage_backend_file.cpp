@@ -20,7 +20,7 @@ storage_backend_file::storage_backend_file(const std::string & file)
 	if (st.st_size & 4095)
 		error_exit(true, "storage_backend_file: file not a multiple of 4096 in size (%ld)", st.st_size);
 
-	n_sectors = st.st_size / 4096;
+	size = st.st_size / 4096;
 }
 
 storage_backend_file::~storage_backend_file()
@@ -28,37 +28,40 @@ storage_backend_file::~storage_backend_file()
 	close(fd);
 }
 
-uint64_t storage_backend_file::get_n_sectors() const
+uint64_t storage_backend_file::get_size() const
 {
-	return n_sectors;
+	return size;
 }
 
-sector storage_backend_file::get_sector(const uint64_t s_nr)
+block * storage_backend_file::get_data(const uint64_t offset, const uint32_t size)
 {
-	if (lseek(fd, s_nr * 4096, SEEK_SET) == -1)
-		error_exit(true, "storage_backend_file::get_sector: failed to seek in file to offset %ld", s_nr * 4096);
+	if (size == 0)
+		error_exit(true, "storage_backend_file::get_data: requesting block of 0 bytes in size");
 
-	uint8_t buffer[4096] { 0 };
+	if (lseek(fd, offset, SEEK_SET) == -1)
+		error_exit(true, "storage_backend_file::get_data: failed to seek in file to offset %ld", offset);
+
+	uint8_t *buffer = static_cast<uint8_t *>(malloc(size));
 	if (read(fd, buffer, sizeof buffer) == -1)
-		error_exit(true, "storage_backend_file::get_sector: failed to read from file");
+		error_exit(true, "storage_backend_file::get_data: failed to read from file");
 
-	return sector(buffer);
+	return new block(buffer, size);
 }
 
-void storage_backend_file::put_sector(const uint64_t s_nr, const sector & s)
+void storage_backend_file::put_data(const uint64_t offset, const block & s)
 {
-	uint8_t buffer[4096] { 0 };
-	s.get_data(buffer);
+	const uint8_t *p = s.get_data();
+	const size_t len = s.get_size();
 
-	if (lseek(fd, s_nr * 4096, SEEK_SET) == -1)
-		error_exit(true, "storage_backend_file::put_sector: failed to seek in file to offset %ld", s_nr * 4096);
+	if (lseek(fd, offset, SEEK_SET) == -1)
+		error_exit(true, "storage_backend_file::put_data: failed to seek in file to offset %ld", offset);
 
-	if (write(fd, buffer, sizeof buffer) == -1)
-		error_exit(true, "storage_backend_file::get_sector: failed to write to file");
+	if (write(fd, p, len) == -1)
+		error_exit(true, "storage_backend_file::put_data: failed to write (%zu bytes) to file at offset %lu", len, offset);
 }
 
 void storage_backend_file::fsync()
 {
 	if (fdatasync(fd) == -1)
-		error_exit(true, "storage_backend_file::get_sector: failed to sync data to disk");
+		error_exit(true, "storage_backend_file::fsync: failed to sync data to disk");
 }
