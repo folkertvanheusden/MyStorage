@@ -57,11 +57,14 @@ void storage_backend_file::get_data(const offset_t offset, const uint32_t size, 
 	uint8_t *buffer = static_cast<uint8_t *>(malloc(size));
 	if (READ(fd, buffer, size) != size) {
 		*err = errno;
+		free(buffer);
 		dolog(ll_error, "storage_backend_file::get_data: failed to read from file");
 		return;
 	}
 
 	*b = new block(buffer, size);
+
+	free(buffer);
 }
 
 void storage_backend_file::put_data(const offset_t offset, const block & s, int *const err)

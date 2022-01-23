@@ -275,7 +275,7 @@ void nbd::handle_client(const int fd)
 					break;
 			}
 
-			dolog(ll_debug, "flags: %x, type: %d, offset: %lu, length: %u", flags.value(), type.value(), offset.value(), length.value());
+			dolog(ll_debug, "nbd::handle_client: command, flags: %x, type: %d, offset: %lu, length: %u", flags.value(), type.value(), offset.value(), length.value());
 
 			std::vector<uint8_t> reply;
 			block *b = nullptr;
@@ -291,6 +291,7 @@ void nbd::handle_client(const int fd)
 					if (WRITE(fd, reply.data(), reply.size()) != ssize_t(reply.size())) {
 						dolog(ll_info, "nbd::handle_client: failed transmitting NBD_CMD_READ header");
 						state = nbd_st_terminate;
+						delete b;
 						break;
 					}
 
@@ -298,6 +299,7 @@ void nbd::handle_client(const int fd)
 						if (WRITE(fd, b->get_data(), b->get_size()) != ssize_t(b->get_size())) {
 							dolog(ll_info, "nbd::handle_client: failed transmitting NBD_CMD_READ data");
 							state = nbd_st_terminate;
+							delete b;
 							break;
 						}
 					}
