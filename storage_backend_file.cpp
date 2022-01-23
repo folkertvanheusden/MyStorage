@@ -4,6 +4,7 @@
 #include <sys/types.h>
 
 #include "error.h"
+#include "io.h"
 #include "logging.h"
 #include "storage_backend_file.h"
 
@@ -45,7 +46,7 @@ block * storage_backend_file::get_data(const offset_t offset, const uint32_t siz
 		error_exit(true, "storage_backend_file::get_data: failed to seek in file to offset %ld", offset);
 
 	uint8_t *buffer = static_cast<uint8_t *>(malloc(size));
-	if (read(fd, buffer, sizeof buffer) == -1)
+	if (READ(fd, buffer, sizeof buffer) != sizeof buffer)
 		error_exit(true, "storage_backend_file::get_data: failed to read from file");
 
 	return new block(buffer, size);

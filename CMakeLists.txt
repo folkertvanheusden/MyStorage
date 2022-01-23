@@ -15,7 +15,9 @@ add_compile_options(-Wall -pedantic)
 add_executable(mystorage
 	block.cpp
 	error.cpp
+	io.cpp
 	logging.cpp
+	main.cpp
 	nbd.cpp
 	net.cpp
 	socket_listener.cpp
