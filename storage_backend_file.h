@@ -18,6 +18,7 @@ public:
 	offset_t get_size() const override;
 	block * get_data(const offset_t offset, const uint32_t size) override;
 	void put_data(const offset_t offset, const block & b) override;
+	void put_data(const offset_t offset, const std::vector<uint8_t> & d);
 
 	void fsync() override;
 };
