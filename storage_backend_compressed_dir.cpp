@@ -192,15 +192,18 @@ void storage_backend_compressed_dir::put_data(const offset_t offset, const block
 		uint64_t block_nr = work_offset / block_size;
 		uint32_t block_offset = work_offset % block_size;
 
-		uint32_t current_size = std::min(work_size, size_t(block_size - block_offset));
+		int current_size = std::min(work_size, size_t(block_size - block_offset));
 
 		uint8_t *temp = nullptr;
 
-		// TODO if offset == 0 && current_size == block_size, do a calloc instead
-		if (!get_block(block_nr, &temp)) {
-			dolog(ll_error, "storage_backend_compressed_dir::put_data: failed to retrieve block %ld", block_nr);
-			*err = EINVAL;
-			break;
+		if (block_offset == 0 && current_size == block_size)
+			temp = reinterpret_cast<uint8_t *>(calloc(1, block_size));
+		else {
+			if (!get_block(block_nr, &temp)) {
+				dolog(ll_error, "storage_backend_compressed_dir::put_data: failed to retrieve block %ld", block_nr);
+				*err = EINVAL;
+				break;
+			}
 		}
 
 		memcpy(&temp[block_offset], input, current_size);
@@ -229,14 +232,57 @@ void storage_backend_compressed_dir::fsync()
 
 bool storage_backend_compressed_dir::trim_zero(const offset_t offset, const uint32_t len, const bool trim, int *const err)
 {
-	uint8_t *zero = reinterpret_cast<uint8_t *>(calloc(1, len));
-
 	*err = 0;
 
-	// TODO: delete files if possible
-	storage_backend_compressed_dir::put_data(offset, block(zero, len), err);
+	un_lock_block_group(offset, len, true, false);
 
-	free(zero);
+	offset_t work_offset = offset;
+	size_t work_size = len;
 
-	return *err != 0;
+	while(work_size > 0) {
+		uint64_t block_nr = work_offset / block_size;
+		uint32_t block_offset = work_offset % block_size;
+
+		int current_size = std::min(work_size, size_t(block_size - block_offset));
+
+		if (current_size == block_size) {
+			// delete file
+			std::string file = myformat("%s/%ld", dir.c_str(), block_nr);
+
+			if (unlink(file.c_str()) == -1) {
+				if (errno != ENOENT) {
+					*err = errno;
+					dolog(ll_error, "storage_backend_compressed_dir::trim_zero: failed to delete file \"%s\": %s", file.c_str(), strerror(*err));
+					break;
+				}
+			}
+		}
+		else {
+			uint8_t *temp = nullptr;
+
+			if (!get_block(block_nr, &temp)) {
+				dolog(ll_error, "storage_backend_compressed_dir::trim_zero: failed to retrieve block %ld", block_nr);
+				*err = EINVAL;
+				break;
+			}
+
+			memset(&temp[block_offset], 0x00, current_size);
+
+			if (!put_block(block_nr, temp)) {
+				dolog(ll_error, "storage_backend_compressed_dir::trim_zero: failed to update block %ld", block_nr);
+				*err = EINVAL;
+				free(temp);
+				break;
+			}
+
+			free(temp);
+		}
+
+		work_offset += current_size;
+		work_size -= current_size;
+	}
+
+	un_lock_block_group(offset, len, false, false);
+
+	return *err == 0;
 }

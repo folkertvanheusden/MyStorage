@@ -10,7 +10,7 @@ add_definitions("-D_FILE_OFFSET_BITS=64")
 
 set(CMAKE_BUILD_TYPE Debug)
 
-add_compile_options(-Wall -pedantic -Wgnu-zero-variadic-macro-arguments)
+add_compile_options(-Wall -pedantic)
 
 add_executable(mystorage
 	block.cpp
