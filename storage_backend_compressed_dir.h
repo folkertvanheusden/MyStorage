@@ -1,5 +1,7 @@
+#include <dirent.h>
 #include <stdint.h>
 #include <string>
+#include <sys/types.h>
 
 #include "block.h"
 #include "compresser.h"
@@ -15,6 +17,8 @@ private:
 	const offset_t          total_size;
 	compresser       *const c;
 	lock_group              lg;
+	DIR                    *dir_structure { nullptr };
+	int                     dir_fd { -1 };
 
 	bool get_block(const uint64_t block_nr, uint8_t **const data);
 	bool put_block(const uint64_t block_nr, const uint8_t *const data);
@@ -29,7 +33,7 @@ public:
 	void get_data(const offset_t offset, const uint32_t size, block **const b, int *const err) override;
 	void put_data(const offset_t offset, const block & b, int *const err) override;
 
-	void fsync() override;
+	bool fsync() override;
 
 	bool trim_zero(const offset_t offset, const uint32_t len, const bool trim, int *const err) override;
 };

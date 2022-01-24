@@ -23,7 +23,7 @@ public:
 	virtual void put_data(const offset_t offset, const block & b, int *const err) = 0;
 	void put_data(const offset_t offset, const std::vector<uint8_t> & d, int *const err);
 
-	virtual void fsync() = 0;
+	virtual bool fsync() = 0;
 
 	virtual bool trim_zero(const offset_t offset, const uint32_t len, const bool trim, int *const err) = 0;
 };

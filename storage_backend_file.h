@@ -19,7 +19,7 @@ public:
 	void get_data(const offset_t offset, const uint32_t size, block **const b, int *const err) override;
 	void put_data(const offset_t offset, const block & b, int *const err) override;
 
-	void fsync() override;
+	bool fsync() override;
 
 	bool trim_zero(const offset_t offset, const uint32_t len, const bool trim, int *const err) override;
 };

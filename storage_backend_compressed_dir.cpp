@@ -1,3 +1,4 @@
+#include <dirent.h>
 #include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
@@ -14,10 +15,20 @@
 
 storage_backend_compressed_dir::storage_backend_compressed_dir(const std::string & id, const std::string & dir, const int block_size, const offset_t total_size, compresser *const c) : storage_backend(id), dir(dir), block_size(block_size), total_size(total_size), c(c)
 {
+	dir_structure = opendir(dir.c_str());
+	if (!dir_structure)
+		error_exit(true, "storage_backend_compressed_dir: failed to open directory \"%s\"", dir.c_str());
+
+	dir_fd = dirfd(dir_structure);
+	if (dir_fd == -1)
+		error_exit(true, "storage_backend_compressed_dir: failed to get file descriptor for open directory \"%s\"", dir.c_str());
 }
 
 storage_backend_compressed_dir::~storage_backend_compressed_dir()
 {
+	close(dir_fd);
+
+	closedir(dir_structure);
 }
 
 offset_t storage_backend_compressed_dir::get_size() const
@@ -225,9 +236,14 @@ void storage_backend_compressed_dir::put_data(const offset_t offset, const block
 	un_lock_block_group(offset, s.get_size(), false, false);
 }
 
-void storage_backend_compressed_dir::fsync()
+bool storage_backend_compressed_dir::fsync()
 {
-	// TODO sync directory
+	if (::fsync(dir_fd) == -1) {
+		dolog(ll_error, "storage_backend_compressed_dir::fsync: fsync callf failed on directory \"%s\": %s", dir.c_str(), strerror(errno));
+		return false;
+	}
+
+	return true;
 }
 
 bool storage_backend_compressed_dir::trim_zero(const offset_t offset, const uint32_t len, const bool trim, int *const err)

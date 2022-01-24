@@ -403,12 +403,20 @@ void nbd::handle_client(const int fd)
 					break;
 
 				case NBD_CMD_FLUSH:
-					storage_backends.at(current_sb)->fsync();
+					{
+						int err = 0;
 
-					if (send_cmd_reply(fd, 0, handle.value(), { }) == false) {
-						dolog(ll_info, "nbd::handle_client: failed transmitting NBD_CMD_FLUSH reply");
-						state = nbd_st_terminate;
-						break;
+						if (storage_backends.at(current_sb)->fsync() == false) {
+							dolog(ll_info, "nbd::handle_client: fsync failed"); 
+							err = EIO;
+							state = nbd_st_terminate;
+						}
+
+						if (send_cmd_reply(fd, err, handle.value(), { }) == false) {
+							dolog(ll_info, "nbd::handle_client: failed transmitting NBD_CMD_FLUSH reply");
+							state = nbd_st_terminate;
+							break;
+						}
 					}
 
 					break;

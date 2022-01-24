@@ -87,10 +87,14 @@ void storage_backend_file::put_data(const offset_t offset, const block & s, int 
 	}
 }
 
-void storage_backend_file::fsync()
+bool storage_backend_file::fsync()
 {
-	if (fdatasync(fd) == -1)
-		error_exit(true, "storage_backend_file::fsync: failed to sync data to disk");
+	if (fdatasync(fd) == -1) {
+		dolog(ll_error, "storage_backend_file::fsync: failed to sync data to disk");
+		return false;
+	}
+
+	return true;
 }
 
 bool storage_backend_file::trim_zero(const offset_t offset, const uint32_t len, const bool trim, int *const err)
