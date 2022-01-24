@@ -23,6 +23,7 @@ add_executable(mystorage
 	logging.cpp
 	main.cpp
 	mirror.cpp
+	mirror_storage_backend.cpp
 	nbd.cpp
 	net.cpp
 	socket_listener.cpp
