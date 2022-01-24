@@ -20,4 +20,6 @@ public:
 
 	// used for async mirrors
 	virtual bool sync() = 0;
+
+	virtual bool trim_zero(const offset_t offset, const uint32_t len, const bool trim) = 0;
 };

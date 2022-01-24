@@ -20,4 +20,6 @@ public:
 	bool put_block(const offset_t o, const block & b) override;
 
 	bool sync() override;
+
+	bool trim_zero(const offset_t offset, const uint32_t len, const bool trim) override;
 };

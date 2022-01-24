@@ -148,5 +148,10 @@ bool storage_backend_file::trim_zero(const offset_t offset, const uint32_t len, 
 	}
 #endif
 
+	if (do_trim_zero(offset, len) == false) {
+		dolog(ll_error, "storage_backend_file::trim_zero: failed to send to mirror(s)");
+		return false;
+	}
+
 	return true;
 }

@@ -38,6 +38,20 @@ bool storage_backend::do_sync_mirrors()
 	return ok;
 }
 
+bool storage_backend::do_trim_zero(const offset_t offset, const uint32_t size)
+{
+	bool ok = true;
+
+	for(auto m : mirrors) {
+		if (m->sync() == false) {
+			ok = false;
+			dolog(ll_error, "storage_backend::do_trim_zero: failed trim/zero mirror %s", m->get_id().c_str());
+		}
+	}
+
+	return ok;
+}
+
 void storage_backend::put_data(const offset_t offset, const std::vector<uint8_t> & d, int *const err)
 {
 	*err = 0;

@@ -36,3 +36,14 @@ bool mirror_storage_backend::sync()
 
 	return true;
 }
+
+bool mirror_storage_backend::trim_zero(const offset_t offset, const uint32_t len, const bool trim)
+{
+	int err = 0;
+	if (sb->trim_zero(offset, len, trim, &err) == false) {
+		dolog(ll_error, "mirror_storage_backend::trim_zero: failed: %s", strerror(err));
+		return false;
+	}
+
+	return true;
+}
