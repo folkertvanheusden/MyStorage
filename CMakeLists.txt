@@ -22,6 +22,7 @@ add_executable(mystorage
 	lock_group.cpp
 	logging.cpp
 	main.cpp
+	mirror.cpp
 	nbd.cpp
 	net.cpp
 	socket_listener.cpp

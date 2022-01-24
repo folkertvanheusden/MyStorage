@@ -13,7 +13,7 @@
 #include "str.h"
 
 
-storage_backend_compressed_dir::storage_backend_compressed_dir(const std::string & id, const std::string & dir, const int block_size, const offset_t total_size, compresser *const c) : storage_backend(id), dir(dir), block_size(block_size), total_size(total_size), c(c)
+storage_backend_compressed_dir::storage_backend_compressed_dir(const std::string & id, const std::string & dir, const int block_size, const offset_t total_size, compresser *const c, const std::vector<mirror *> & mirrors) : storage_backend(id, mirrors), dir(dir), block_size(block_size), total_size(total_size), c(c)
 {
 	dir_structure = opendir(dir.c_str());
 	if (!dir_structure)
@@ -188,16 +188,16 @@ void storage_backend_compressed_dir::get_data(const offset_t offset, const uint3
 	un_lock_block_group(offset, size, false, true);
 }
 
-void storage_backend_compressed_dir::put_data(const offset_t offset, const block & s, int *const err)
+void storage_backend_compressed_dir::put_data(const offset_t offset, const block & b, int *const err)
 {
 	*err = 0;
 
-	un_lock_block_group(offset, s.get_size(), true, false);
+	un_lock_block_group(offset, b.get_size(), true, false);
 
 	offset_t work_offset = offset;
 
-	const uint8_t *input = s.get_data();
-	size_t work_size = s.get_size();
+	const uint8_t *input = b.get_data();
+	size_t work_size = b.get_size();
 
 	while(work_size > 0) {
 		uint64_t block_nr = work_offset / block_size;
@@ -233,13 +233,23 @@ void storage_backend_compressed_dir::put_data(const offset_t offset, const block
 		input += current_size;
 	}
 
-	un_lock_block_group(offset, s.get_size(), false, false);
+	un_lock_block_group(offset, b.get_size(), false, false);
+
+	if (do_mirror(offset, b) == false) {
+		*err = EIO;
+		dolog(ll_error, "storage_backend_compressed_dir::put_data: failed to send block (%zu bytes) to mirror(s) at offset %lu", b.get_size(), offset);
+	}
 }
 
 bool storage_backend_compressed_dir::fsync()
 {
 	if (::fsync(dir_fd) == -1) {
 		dolog(ll_error, "storage_backend_compressed_dir::fsync: fsync callf failed on directory \"%s\": %s", dir.c_str(), strerror(errno));
+		return false;
+	}
+
+	if (do_sync_mirrors() == false) {
+		dolog(ll_error, "storage_backend_file::fsync: failed to sync data to mirror(s)");
 		return false;
 	}
 

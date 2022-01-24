@@ -9,7 +9,7 @@
 #include "storage_backend_file.h"
 
 
-storage_backend_file::storage_backend_file(const std::string & id, const std::string & file) : storage_backend(id)
+storage_backend_file::storage_backend_file(const std::string & id, const std::string & file, const std::vector<mirror *> & mirrors) : storage_backend(id, mirrors)
 {
 	fd = open(file.c_str(), O_RDWR);
 	if (fd == -1)
@@ -67,10 +67,10 @@ void storage_backend_file::get_data(const offset_t offset, const uint32_t size, 
 	free(buffer);
 }
 
-void storage_backend_file::put_data(const offset_t offset, const block & s, int *const err)
+void storage_backend_file::put_data(const offset_t offset, const block & b, int *const err)
 {
-	const uint8_t *p = s.get_data();
-	const ssize_t len = s.get_size();
+	const uint8_t *p = b.get_data();
+	const ssize_t len = b.get_size();
 
 	*err = 0;
 
@@ -85,12 +85,29 @@ void storage_backend_file::put_data(const offset_t offset, const block & s, int 
 		dolog(ll_error, "storage_backend_file::put_data: failed to write (%zu bytes) to file at offset %lu", len, offset);
 		return;
 	}
+
+	if (do_mirror(offset, b) == false) {
+		*err = EIO;
+		dolog(ll_error, "storage_backend_file::put_data: failed to send block (%zu bytes) to mirror(s) at offset %lu", len, offset);
+		return;
+	}
+
+	if (do_mirror(offset, b) == false) {
+		*err = EIO;
+		dolog(ll_error, "storage_backend_file::put_data: failed to send block (%zu bytes) to mirror(s) at offset %lu", len, offset);
+		return;
+	}
 }
 
 bool storage_backend_file::fsync()
 {
 	if (fdatasync(fd) == -1) {
 		dolog(ll_error, "storage_backend_file::fsync: failed to sync data to disk");
+		return false;
+	}
+
+	if (do_sync_mirrors() == false) {
+		dolog(ll_error, "storage_backend_file::fsync: failed to sync data to mirror(s)");
 		return false;
 	}
 

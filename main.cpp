@@ -1,9 +1,11 @@
 #include <stdio.h>
+#include <vector>
 
 #include "compresser.h"
 #include "compresser_zlib.h"
 #include "compresser_lzo.h"
 #include "logging.h"
+#include "mirror.h"
 #include "nbd.h"
 #include "socket_listener_ipv4.h"
 #include "storage_backend_compressed_dir.h"
@@ -14,12 +16,14 @@ int main(int argc, char *argv[])
 {
 	setlog("mystorage.log", ll_debug, ll_debug);
 
-	socket_listener *sl = new socket_listener_ipv4("0.0.0.0", 10809);
+	socket_listener *sl = new socket_listener_ipv4("0.0.0.0", 10899);
 
-	storage_backend *sb1 = new storage_backend_file("file", "/home/folkert/temp/mystorage.dat");
+	std::vector<mirror *> mirrors1;
+	storage_backend *sb1 = new storage_backend_file("file", "/home/folkert/temp/mystorage.dat", mirrors1);
 
 	compresser *c = new compresser_zlib(3);
-	storage_backend *sb2 = new storage_backend_compressed_dir("dir", "/home/folkert/temp/dir", 131072, 17179869184, c);
+	std::vector<mirror *> mirrors2;
+	storage_backend *sb2 = new storage_backend_compressed_dir("dir", "/home/folkert/temp/dir", 131072, 17179869184, c, mirrors2);
 
 	std::vector<storage_backend *> storage_backends { sb1, sb2 };
 
