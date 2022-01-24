@@ -19,6 +19,7 @@ add_executable(mystorage
 	compresser_zlib.cpp
 	error.cpp
 	io.cpp
+	lock_group.cpp
 	logging.cpp
 	main.cpp
 	nbd.cpp
