@@ -17,7 +17,7 @@ bool storage_backend::do_mirror(const offset_t offset, const block & b)
 	for(auto m : mirrors) {
 		if (m->put_block(offset, b) == false) {
 			ok = false;
-			dolog(ll_error, "storage_backend::do_sync_mirrors: failed writing to mirror %s", m->get_id().c_str());
+			dolog(ll_error, "storage_backend::do_sync_mirrors(%s): failed writing to mirror %s", id.c_str(), m->get_id().c_str());
 		}
 	}
 
@@ -31,7 +31,7 @@ bool storage_backend::do_sync_mirrors()
 	for(auto m : mirrors) {
 		if (m->sync() == false) {
 			ok = false;
-			dolog(ll_error, "storage_backend::do_sync_mirrors: failed syncing mirror %s", m->get_id().c_str());
+			dolog(ll_error, "storage_backend::do_sync_mirrors(%s): failed syncing mirror %s", id.c_str(), m->get_id().c_str());
 		}
 	}
 
@@ -45,7 +45,7 @@ bool storage_backend::do_trim_zero(const offset_t offset, const uint32_t size)
 	for(auto m : mirrors) {
 		if (m->sync() == false) {
 			ok = false;
-			dolog(ll_error, "storage_backend::do_trim_zero: failed trim/zero mirror %s", m->get_id().c_str());
+			dolog(ll_error, "storage_backend::do_trim_zero(%s): failed trim/zero mirror %s", id.c_str(), m->get_id().c_str());
 		}
 	}
 

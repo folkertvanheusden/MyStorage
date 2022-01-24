@@ -20,7 +20,7 @@ bool mirror_storage_backend::put_block(const offset_t o, const block & b)
 	sb->put_data(o, b, &err);
 
 	if (err) {
-		dolog(ll_error, "mirror_storage_backend::put_block: cannot put block, reason: %s", strerror(err));
+		dolog(ll_error, "mirror_storage_backend::put_block(%s): cannot put block, reason: %s", id.c_str(), strerror(err));
 		return false;
 	}
 
@@ -30,7 +30,7 @@ bool mirror_storage_backend::put_block(const offset_t o, const block & b)
 bool mirror_storage_backend::sync()
 {
 	if (sb->fsync() == false) {
-		dolog(ll_error, "mirror_storage_backend::put_block: cannot fsync");
+		dolog(ll_error, "mirror_storage_backend::put_block(%s): cannot fsync", id.c_str());
 		return false;
 	}
 
@@ -41,7 +41,7 @@ bool mirror_storage_backend::trim_zero(const offset_t offset, const uint32_t len
 {
 	int err = 0;
 	if (sb->trim_zero(offset, len, trim, &err) == false) {
-		dolog(ll_error, "mirror_storage_backend::trim_zero: failed: %s", strerror(err));
+		dolog(ll_error, "mirror_storage_backend::trim_zero(%s): failed: %s", id.c_str(), strerror(err));
 		return false;
 	}
 
