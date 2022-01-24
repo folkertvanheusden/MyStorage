@@ -16,27 +16,36 @@ lock_group::~lock_group()
 	}
 }
 
-int lock_group::nr_to_lock(const uint64_t nr)
+std::set<uint64_t> lock_group::nrs_to_locks(const std::vector<uint64_t> & nrs)
 {
-	return nr % locks.size();
+	std::set<uint64_t> unique_nrs;
+
+	for(auto nr : nrs)
+		unique_nrs.insert(nr % locks.size());
+
+	return unique_nrs;
 }
 
-void lock_group::lock_shared(const uint64_t nr)
+void lock_group::lock_shared(const std::vector<uint64_t> & nrs)
 {
-	locks.at(nr_to_lock(nr))->lock_shared();
+	for(auto nr : nrs_to_locks(nrs))
+		locks.at(nr)->lock_shared();
 }
 
-void lock_group::unlock_shared(const uint64_t nr)
+void lock_group::unlock_shared(const std::vector<uint64_t> & nrs)
 {
-	locks.at(nr_to_lock(nr))->unlock_shared();
+	for(auto nr : nrs_to_locks(nrs))
+		locks.at(nr)->unlock_shared();
 }
 
-void lock_group::lock_private(const uint64_t nr)
+void lock_group::lock_private(const std::vector<uint64_t> & nrs)
 {
-	locks.at(nr_to_lock(nr))->lock();
+	for(auto nr : nrs_to_locks(nrs))
+		locks.at(nr)->lock();
 }
 
-void lock_group::unlock_private(const uint64_t nr)
+void lock_group::unlock_private(const std::vector<uint64_t> & nrs)
 {
-	locks.at(nr_to_lock(nr))->unlock();
+	for(auto nr : nrs_to_locks(nrs))
+		locks.at(nr)->unlock();
 }

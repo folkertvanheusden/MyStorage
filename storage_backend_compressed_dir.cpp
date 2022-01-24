@@ -112,9 +112,32 @@ bool storage_backend_compressed_dir::put_block(const uint64_t block_nr, const ui
 	return true;
 }
 
+void storage_backend_compressed_dir::un_lock_block_group(const offset_t offset, const uint32_t size, const bool do_lock, const bool shared)
+{
+	std::vector<uint64_t> block_nrs;
+
+	for(offset_t o=offset; o<offset + size; o += block_size)
+		block_nrs.push_back(o);
+
+	if (do_lock) {
+		if (shared)
+			lg.lock_shared(block_nrs);
+		else
+			lg.lock_private(block_nrs);
+	}
+	else {
+		if (shared)
+			lg.unlock_shared(block_nrs);
+		else
+			lg.unlock_private(block_nrs);
+	}
+}
+
 void storage_backend_compressed_dir::get_data(const offset_t offset, const uint32_t size, block **const b, int *const err)
 {
 	*err = 0;
+
+	un_lock_block_group(offset, size, true, true);
 
 	uint8_t *out = nullptr;
 	uint32_t out_size = 0;
@@ -150,10 +173,16 @@ void storage_backend_compressed_dir::get_data(const offset_t offset, const uint3
 	*b = new block(out, out_size);
 
 	free(out);
+
+	un_lock_block_group(offset, size, false, true);
 }
 
 void storage_backend_compressed_dir::put_data(const offset_t offset, const block & s, int *const err)
 {
+	*err = 0;
+
+	un_lock_block_group(offset, s.get_size(), true, false);
+
 	offset_t work_offset = offset;
 
 	const uint8_t *input = s.get_data();
@@ -189,6 +218,8 @@ void storage_backend_compressed_dir::put_data(const offset_t offset, const block
 		work_size -= current_size;
 		input += current_size;
 	}
+
+	un_lock_block_group(offset, s.get_size(), false, false);
 }
 
 void storage_backend_compressed_dir::fsync()
