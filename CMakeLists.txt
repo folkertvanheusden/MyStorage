@@ -13,6 +13,7 @@ set(CMAKE_BUILD_TYPE Debug)
 add_compile_options(-Wall -pedantic)
 
 add_executable(mystorage
+	aoe.cpp
 	block.cpp
 	compresser.cpp
 	compresser_lzo.cpp

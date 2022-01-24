@@ -1,5 +1,6 @@
 #include <stdio.h>
 
+#include "aoe.h"
 #include "compresser.h"
 #include "compresser_zlib.h"
 #include "compresser_lzo.h"
@@ -14,7 +15,7 @@ int main(int argc, char *argv[])
 {
 	setlog("mystorage.log", ll_debug, ll_debug);
 
-	socket_listener *sl = new socket_listener_ipv4("0.0.0.0", 10809);
+//	socket_listener *sl = new socket_listener_ipv4("0.0.0.0", 10809);
 
 	storage_backend *sb1 = new storage_backend_file("file", "/home/folkert/temp/mystorage.dat");
 
@@ -23,15 +24,19 @@ int main(int argc, char *argv[])
 
 	std::vector<storage_backend *> storage_backends { sb1, sb2 };
 
-	nbd *nbd_ = new nbd(sl, storage_backends);
+//	nbd *nbd_ = new nbd(sl, storage_backends);
+
+	constexpr uint8_t my_mac[] = { 0x32, 0x11, 0x22, 0x33, 0x44, 0x55 };
+	aoe *aoe_ = new aoe("ata", sb1, my_mac);
 
 	getchar();
 
-	delete nbd_;
+	delete aoe_;
+//	delete nbd_;
 	delete sb2;
 	delete c;
 	delete sb1;
-	delete sl;
+//	delete sl;
 
 	return 0;
 }
