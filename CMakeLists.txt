@@ -3,14 +3,14 @@ cmake_minimum_required(VERSION 3.9.4)
 
 project(mystorage VERSION 6.0)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 add_definitions("-D_FILE_OFFSET_BITS=64")
 
 set(CMAKE_BUILD_TYPE Debug)
 
-add_compile_options(-Wall -pedantic)
+add_compile_options(-Wall -pedantic -Wgnu-zero-variadic-macro-arguments)
 
 add_executable(mystorage
 	block.cpp

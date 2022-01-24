@@ -43,11 +43,8 @@ void closelog()
 	lfh = nullptr;
 }
 
-void dolog(const log_level_t ll, const char *fmt, ...)
+void DOLOG(const log_level_t ll, const char *fmt, ...)
 {
-	if (ll < log_level_file && ll < log_level_screen)
-		return;
-
 	if (!lfh) {
 		lfh = fopen(logfile, "a+");
 		if (!lfh) {
