@@ -24,8 +24,12 @@ socket_client_ipv4::~socket_client_ipv4()
 
 int socket_client_ipv4::connect()
 {
+	if (fd != -1) {
+		close(fd);
+		fd = -1;
+	}
+
 	std::string portstr = myformat("%d", port);
-	int fd = -1;
 
         struct addrinfo hints{ 0 };
         hints.ai_family = AF_UNSPEC;
