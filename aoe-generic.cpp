@@ -73,7 +73,7 @@ bool open_tun(const std::string & dev_name, int *const fd, int *const mtu_size)
 		*mtu_size = ifr_tap2.ifr_mtu;
 	}
 
-	dolog(ll_debug, "aoe(%s): MTU size: %d bytes", dev_name.c_str(), *mtu_size);
+	dolog(ll_info, "aoe(%s): MTU size: %d bytes", dev_name.c_str(), *mtu_size);
 
 	return true;
 }

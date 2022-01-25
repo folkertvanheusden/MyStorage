@@ -248,10 +248,10 @@ void aoe::operator()()
 				}
 				else {
 					out[27] = 64;  // DRDY set
-					out.resize(36);
+					out.resize(36);  // move any extra data
 
-					for(size_t i=0; i<b->get_size(); i++)
-						out.push_back(b->get_data()[i]);
+					out.resize(36 + b->get_size());  // make room
+					memcpy(out.data() + 36, b->get_data(), b->get_size());
 
 					if (write(fd, out.data(), out.size()) != ssize_t(out.size())) {
 						dolog(ll_error, "aoe::operator(%s): failed to transmit Ethernet frame: %s (%zu bytes, ReadSector)", id.c_str(), strerror(errno), out.size());
