@@ -12,7 +12,7 @@ private:
 	std::thread           *th { nullptr };
 	uint8_t                configuration[1024] { 0 };
 	int                    major { 0x0001 };
-	int                    minor { 0x06 };
+	int                    minor { 0x07 };
 	const int              firmware_version { 0x4001 };
 
 	bool announce();
