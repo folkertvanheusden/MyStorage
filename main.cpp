@@ -10,6 +10,7 @@
 #include "mirror_storage_backend.h"
 #include "nbd.h"
 #include "socket_listener_ipv4.h"
+#include "storage_backend_aoe.h"
 #include "storage_backend_compressed_dir.h"
 #include "storage_backend_file.h"
 
@@ -35,21 +36,25 @@ int main(int argc, char *argv[])
 	mirrors2.push_back(sm2);
 	storage_backend *sb2 = new storage_backend_compressed_dir("dir", "/home/folkert/temp/dir", 131072, 17179869184, c, mirrors2);
 
-	std::vector<storage_backend *> storage_backends { sb1, sb2 };
+	constexpr uint8_t aoe_client_mac[] = { 0x32, 0x00, 0x11, 0x22, 0x33, 0x44 };
+	storage_backend_aoe *sb_aoe = new storage_backend_aoe("aoe", { }, "c_aoe", aoe_client_mac, 66, 6);
 
-//	nbd *nbd_ = new nbd(sl, storage_backends);
+	std::vector<storage_backend *> storage_backends { sb1, sb2, sb_aoe };
 
-	constexpr uint8_t my_mac[] = { 0x32, 0x11, 0x22, 0x33, 0x44, 0x55 };
-	aoe *aoe_ = new aoe("ata", sb1, my_mac);
+	nbd *nbd_ = new nbd(sl, storage_backends);
+
+	constexpr uint8_t aoe_server_mac[] = { 0x32, 0x11, 0x22, 0x33, 0x44, 0x55 };
+	aoe *aoe_ = new aoe("ata", sb1, aoe_server_mac);
 
 	getchar();
 
+	delete sb_aoe;
 	delete aoe_;
-//	delete nbd_;
+	delete nbd_;
 	delete sb2;
 	delete c;
 	delete sb1;
-//	delete sl;
+	delete sl;
 
 	return 0;
 }

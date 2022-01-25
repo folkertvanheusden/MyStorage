@@ -1,5 +1,5 @@
+#pragma once
 #include <string>
-#include <net/if.h>
 #include <sys/ioctl.h>
 
 
@@ -25,5 +25,4 @@
 #define FlagR		8  // reply
 #define FlagE		4  // error
 
-void set_ifr_name(struct ifreq *ifr, const std::string & dev_name);
 int open_tun(const std::string & dev_name);

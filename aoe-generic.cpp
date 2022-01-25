@@ -2,8 +2,8 @@
 #include <fcntl.h>
 #include <string>
 #include <string.h>
-//#include <linux/if.h>  // included in headerfile
-//#include <linux/if_arp.h>
+#include <linux/if.h>
+#include <linux/if_arp.h>
 #include <linux/if_tun.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
