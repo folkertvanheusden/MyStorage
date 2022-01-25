@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <stdlib.h>
+#include <vector>
 
 
 // This class is a wrapper around a pointer/size pair.
@@ -12,6 +13,7 @@ private:
 
 public:
 	block(const uint8_t *const data, const size_t len);
+	block(const std::vector<uint8_t> & data);
 	virtual ~block();
 
 	size_t get_size() const;

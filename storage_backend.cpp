@@ -68,7 +68,7 @@ void storage_backend::put_data(const offset_t offset, const std::vector<uint8_t>
 {
 	*err = 0;
 
-	block b(d.data(), d.size());
+	block b(d);
 
 	put_data(offset, b, err);
 }
