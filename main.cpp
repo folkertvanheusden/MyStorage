@@ -17,7 +17,7 @@
 
 int main(int argc, char *argv[])
 {
-	setlog("mystorage.log", ll_info, ll_info);
+	setlog("mystorage.log", ll_debug, ll_debug);
 	dolog(ll_info, "MyStorage starting");
 
 	constexpr uint8_t aoe_client_mac[] = { 0x32, 0x00, 0x11, 0x22, 0x33, 0x44 };
@@ -44,7 +44,12 @@ int main(int argc, char *argv[])
 
 	storage_backend *sb4 = new storage_backend_file("file2", "/home/folkert/temp/ramdisk/test.dat", { });
 
-	std::vector<storage_backend *> storage_backends { sb1, sb2, sb3, sb4, sb_aoe };
+	std::vector<mirror *> mirrors3;
+	mirror_storage_backend *sm3 = new mirror_storage_backend("mirror3-sb", sb_aoe);
+	mirrors3.push_back(sm3);
+	storage_backend *sb5 = new storage_backend_file("file3", "/home/folkert/temp/mystorage16M.dat", mirrors3);
+
+	std::vector<storage_backend *> storage_backends { sb1, sb2, sb3, sb4, sb5 };
 
 	nbd *nbd_ = new nbd(sl, storage_backends);
 

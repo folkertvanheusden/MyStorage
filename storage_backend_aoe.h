@@ -11,17 +11,17 @@ private:
 	uint8_t           my_mac[6] { 0 };
 	const uint16_t    major;
 	const uint8_t     minor;
-	offset_t          size { 0 };
 	mutable struct {
 		int       fd { -1 };
 		uint8_t   tgt_mac[6] { 0 };
 		offset_t  size { 0 };
+		int       mtu_size { 1500 };
 	}                 connection;
 
 	bool connect() const;
 
 public:
-	storage_backend_aoe(const std::string & id, const std::vector<mirror *> & mirrors, const std::string & dev_name, const uint8_t my_mac[6], const uint16_t major, const uint8_t minor);
+	storage_backend_aoe(const std::string & id, const std::vector<mirror *> & mirrors, const std::string & dev_name, const uint8_t my_mac[6], const uint16_t major, const uint8_t minor, const int mtu_size);
 	virtual ~storage_backend_aoe();
 
 	offset_t get_size() const override;
