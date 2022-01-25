@@ -40,6 +40,8 @@ socket_listener_ipv4::socket_listener_ipv4(const char *const listen_addr, const 
 	int qlen = SOMAXCONN;
 	if (setsockopt(fd, SOL_TCP, TCP_FASTOPEN, &qlen, sizeof(qlen)) == -1)
 		error_exit(true, "socket_listener_ipv4: failed to enable \"tcp fastopen\"");
+
+	dolog(ll_info, "socket_listener_ipv4: listening on [%s]:%p", listen_addr, listen_port);
 }
 
 socket_listener_ipv4::~socket_listener_ipv4()
