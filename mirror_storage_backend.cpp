@@ -14,6 +14,11 @@ mirror_storage_backend::~mirror_storage_backend()
 {
 }
 
+offset_t mirror_storage_backend::get_size() const
+{
+	return sb->get_size();
+}
+
 bool mirror_storage_backend::put_block(const offset_t o, const block & b)
 {
 	int err = 0;

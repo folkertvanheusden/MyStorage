@@ -11,13 +11,17 @@
 #include "error.h"
 #include "logging.h"
 #include "net.h"
+#include "str.h"
 
 
-aoe::aoe(const std::string & dev_name, storage_backend *const storage_backend, const uint8_t my_mac[6]) : sb(storage_backend)
+aoe::aoe(const std::string & dev_name, storage_backend *const storage_backend, const uint8_t my_mac[6], const int mtu_size_in) : sb(storage_backend)
 {
-	fd = open_tun(dev_name);
-	if (fd == -1)
-		error_exit(false, "aoe: failed creating network device \"%s\"", dev_name.c_str());
+	id = myformat("%d.%d", major, minor);
+
+	mtu_size = mtu_size_in > 0 ? mtu_size_in : 0;
+
+	if (open_tun(dev_name, &fd, &mtu_size) == false)
+		error_exit(false, "aoe(%s): failed creating network device \"%s\"", id.c_str(), dev_name.c_str());
 
 	memcpy(this->my_mac, my_mac, 6);
 
@@ -30,7 +34,7 @@ aoe::~aoe()
 
 bool aoe::announce()
 {
-	dolog(ll_debug, "aoe::announce: announce shelf");
+	dolog(ll_debug, "aoe::announce(%s): announce shelf", id.c_str());
 
 	std::vector<uint8_t> out;
 
@@ -57,13 +61,13 @@ bool aoe::announce()
 	// Configuration announcement payload
 	add_uint16(out, 16);  // buffer count
 	add_uint16(out, firmware_version);  // firmware version
-	out.push_back(2);    // max number of sectors in 1 command
+	out.push_back(std::min(255, (mtu_size - 36) / 512));    // max number of sectors in 1 command
 	out.push_back(0x10 | Ccmd_read);
 
 	add_uint16(out, 0);  // configuration length
 
 	if (write(fd, out.data(), out.size()) != ssize_t(out.size())) {
-		dolog(ll_error, "aoe::operator: failed to tansmit Ethernet frame: %s", strerror(errno));
+		dolog(ll_error, "aoe::operator(%s): failed to tansmit Ethernet frame: %s (announce)", id.c_str(), strerror(errno));
 		return false;
 	}
 
@@ -87,19 +91,19 @@ void aoe::operator()()
 
 		int size = read(fd, (char *)frame, sizeof frame);
 		if (size == -1) {
-			dolog(ll_error, "aoe::operator: failed to retrieve frame from virtual Ethernet interface");
+			dolog(ll_error, "aoe::operator(%s): failed to retrieve frame from virtual Ethernet interface", id.c_str());
 			break;
 		}
 
 		if (frame[12] != 0x88 || frame[13] != 0xa2) {  // verify ethertype
-			dolog(ll_debug, "aoe::operator: ignoring frame with ethertype %02x%02x", frame[12], frame[13]);
+			dolog(ll_debug, "aoe::operator(%s): ignoring frame with ethertype %02x%02x", id.c_str(), frame[12], frame[13]);
 			continue;
 		}
 
 		// check mac address
 		constexpr uint8_t bc_mac[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 		if (memcmp(&frame[0], my_mac, 6) != 0 && memcmp(&frame[0], bc_mac, 6) != 0) {
-			dolog(ll_debug, "aoe::operator: ignoring frame not for us %02x%02x%02x%02x%02x%02x", frame[0], frame[1], frame[2], frame[3], frame[4], frame[5]);
+			dolog(ll_debug, "aoe::operator(%s): ignoring frame not for us %02x%02x%02x%02x%02x%02x", id.c_str(), frame[0], frame[1], frame[2], frame[3], frame[4], frame[5]);
 			continue;
 		}
 
@@ -120,13 +124,13 @@ void aoe::operator()()
 
 		out.at(14) = (out.at(14) & 0xf0) | FlagR;
 
-		dolog(ll_debug, "aoe::operator: command %d", command);
+		dolog(ll_debug, "aoe::operator(%s): command %d", id.c_str(), command);
 
 		if (command == CommandInfo) {  // query configuration information
 			const uint8_t sub_command = out.at(29) & 0x0f;
 			const uint16_t sc_data_len = (out.at(30) << 8) | out.at(31);
 
-			dolog(ll_debug, "aoe::operator: CommandInfo, sub-command %d", sub_command);
+			dolog(ll_debug, "aoe::operator(%s): CommandInfo, sub-command %d", id.c_str(), sub_command);
 
 			out.at(24) = 0;  // buffer count
 			out.at(25) = 16;
@@ -134,7 +138,8 @@ void aoe::operator()()
 			out.at(26) = firmware_version >> 8;
 			out.at(27) = firmware_version & 255;
 
-			out.at(28) = 0;  // sector count
+			out.at(28) = std::min(255, (mtu_size - 36) / 512);  // max number of sectors in 1 command
+			dolog(ll_debug, "aoe::operator(%s): max. nr. of sectors per command: %d", id.c_str(), out.at(28));
 
 			out.at(29) = 0x10 | sub_command;  // version & sub command
 
@@ -145,9 +150,6 @@ void aoe::operator()()
 				out.at(31) = 0; // sizeof(configuration) & 255;
 
 				out.resize(32);
-
-//				for(size_t idx=0; idx<sizeof configuration; idx++)
-//					out.push_back(configuration[idx]);
 			}
 			else if (sub_command == Ccmd_test) {
 				if (sc_data_len != sizeof(configuration) || memcmp(configuration, out.data() + 32, sc_data_len) != 0)
@@ -167,15 +169,15 @@ void aoe::operator()()
 				}
 			}
 			else {
-				dolog(ll_warning, "aoe::operator: sub-command %d not understood", sub_command);
+				dolog(ll_warning, "aoe::operator(%s): sub-command %d not understood", id.c_str(), sub_command);
 			}
 
 			if (respond) {
-				dolog(ll_debug, "aoe::operator: send response to %d (%zu bytes)", sub_command, out.size());
+				dolog(ll_debug, "aoe::operator(%s): send response to %d (%zu bytes)", id.c_str(), sub_command, out.size());
 
 				if (write(fd, out.data(), out.size()) != ssize_t(out.size())) {
-					dolog(ll_error, "aoe::operator: failed to tansmit Ethernet frame: %s", strerror(errno));
-					// TODO terminate session?
+					dolog(ll_error, "aoe::operator(%s): failed to tansmit Ethernet frame: %s (Info)", id.c_str(), strerror(errno));
+					break;
 				}
 			}
 		}
@@ -184,10 +186,10 @@ void aoe::operator()()
 
 			out.at(24) = 0;  // flags
 
-			dolog(ll_debug, "aoe::operator: CommandATA, lba: %ld, sector count: %d, cmd: %02x", lba, out[26], out[27]);
+			dolog(ll_debug, "aoe::operator(%s): CommandATA, lba: %ld, sector count: %d, cmd: %02x", id.c_str(), lba, out[26], out[27]);
 
 			if (out[27] == 0xec) {  // identify drive
-				dolog(ll_debug, "aoe::operator: CommandATA: IdentifyDrive");
+				dolog(ll_debug, "aoe::operator(%s): CommandATA: IdentifyDrive", id.c_str());
 
 				out[26] = 0;  // sector count
 
@@ -212,7 +214,7 @@ void aoe::operator()()
 				response[93] = 0x400b;  // from vblade
 
 				uint64_t sectors = sb->get_size() / 512;
-				dolog(ll_debug, "aoe::operator: CommandATA, IdentifyDrive: backend is %d sectors", sectors);
+				dolog(ll_debug, "aoe::operator(%s): CommandATA, IdentifyDrive: backend is %d sectors", id.c_str(), sectors);
 
 				// LBA48
 				response[69] = 0;  // if bit 3 is 0, then this is 48 bit, else 32
@@ -227,41 +229,67 @@ void aoe::operator()()
 					add_uint16(out, htons(response[i]));
 
 				if (write(fd, out.data(), out.size()) != ssize_t(out.size())) {
-					dolog(ll_error, "aoe::operator: failed to transmit Ethernet frame: %s", strerror(errno));
-					// TODO terminate session?
+					dolog(ll_error, "aoe::operator(%s): failed to transmit Ethernet frame: %s (Identify)", id.c_str(), strerror(errno));
+					break;
 				}
 			}
 			else if (out[27] == 0x20 || out[27] == 0x24) {  // read sectors, max 28bit/48bit
-				dolog(ll_debug, "aoe::operator: CommandATA: ReadSector(s)");
-
 				lba &= out[27] == 0x20 ? 0x0fffffff : 0x0000ffffffffffffll;
+
+				dolog(ll_debug, "aoe::operator(%s): CommandATA: ReadSector(s) (%d) from LBA %llu", id.c_str(), out[26], lba);
 
 				int err = 0;
 				block *b = nullptr;
-			 	sb->get_data(lba * 512, out[26] * 512, &b, &err);
+			 	sb->get_data(lba * 512, out[26] * 512, &b, &err);  // TODO range check
 
 				if (err) {
-					dolog(ll_error, "aoe::operator: failed to retrieve data from storage backend: %s", strerror(err));
+					dolog(ll_error, "aoe::operator(%s): failed to retrieve data from storage backend: %s", id.c_str(), strerror(err));
+					// TODO send error back
+				}
+				else {
+					out[27] = 64;  // DRDY set
+					out.resize(36);  // move any extra data
+
+					out.resize(36 + b->get_size());  // make room
+					memcpy(out.data() + 36, b->get_data(), b->get_size());
+
+					if (write(fd, out.data(), out.size()) != ssize_t(out.size())) {
+						dolog(ll_error, "aoe::operator(%s): failed to transmit Ethernet frame: %s (%zu bytes, ReadSector)", id.c_str(), strerror(errno), out.size());
+						break;
+					}
+				}
+
+				delete b;
+			}
+			else if (out[27] == 0x30 || out[27] == 0x34) {  // write sectors, max 28bit/48bit
+				lba &= out[27] == 0x30 ? 0x0fffffff : 0x0000ffffffffffffll;
+
+				dolog(ll_debug, "aoe::operator(%s): CommandATA: WriteSector(s) to LBA %llu", id.c_str(), lba);
+
+				block b(&out[36], out[26] * 512);  // TODO range check
+
+				int err = 0;
+				sb->put_data(lba * 512, b, &err);
+
+				if (err) {
+					dolog(ll_error, "aoe::operator(%s): failed to write data to storage backend: %s", id.c_str(), strerror(err));
 					// TODO send error back
 				}
 				else {
 					out[27] = 64;  // DRDY set
 					out.resize(36);
 
-					for(size_t i=0; i<b->get_size(); i++)
-						out.push_back(b->get_data()[i]);
-
 					if (write(fd, out.data(), out.size()) != ssize_t(out.size())) {
-						dolog(ll_error, "aoe::operator: failed to transmit Ethernet frame: %s (%zu bytes)", strerror(errno), out.size());
-						// TODO terminate session?
+						dolog(ll_error, "aoe::operator(%s): failed to transmit Ethernet frame: %s (%zu bytes, WriteSector)", id.c_str(), strerror(errno), out.size());
+						break;
 					}
 				}
 			}
 			else {
-				dolog(ll_warning, "aoe::operator: ata command %02x not supported", out[27]);
+				dolog(ll_warning, "aoe::operator(%s): ata command %02x not supported", id.c_str(), out[27]);
 			}
 		}
 	}
 
-	dolog(ll_error, "aoe::operator: thread terminates");
+	dolog(ll_error, "aoe::operator(%s): thread terminates", id.c_str());
 }

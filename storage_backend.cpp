@@ -10,6 +10,18 @@ storage_backend::~storage_backend()
 {
 }
 
+bool storage_backend::verify_mirror_sizes()
+{
+	for(auto m : mirrors) {
+		if (m->get_size() < get_size()) {
+			dolog(ll_error, "storage_backend::verify_mirror_sizes(%s): mirror %s is too small", id.c_str(), m->get_id().c_str());
+			return false;
+		}
+	}
+
+	return true;
+}
+
 bool storage_backend::do_mirror(const offset_t offset, const block & b)
 {
 	bool ok = true;
@@ -17,7 +29,7 @@ bool storage_backend::do_mirror(const offset_t offset, const block & b)
 	for(auto m : mirrors) {
 		if (m->put_block(offset, b) == false) {
 			ok = false;
-			dolog(ll_error, "storage_backend::do_sync_mirrors(%s): failed writing to mirror %s", id.c_str(), m->get_id().c_str());
+			dolog(ll_error, "storage_backend::do_mirror(%s): failed writing to mirror %s", id.c_str(), m->get_id().c_str());
 		}
 	}
 

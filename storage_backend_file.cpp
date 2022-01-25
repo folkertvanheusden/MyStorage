@@ -25,6 +25,8 @@ storage_backend_file::storage_backend_file(const std::string & id, const std::st
 	size = st.st_size;
 
 	dolog(ll_debug, "storage_backend_file(%s): size is %zu bytes", id.c_str(), size);
+
+	verify_mirror_sizes();
 }
 
 storage_backend_file::~storage_backend_file()

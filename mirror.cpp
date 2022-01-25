@@ -9,7 +9,7 @@ mirror::~mirror()
 {
 }
 
-std::string mirror::get_id()
+std::string mirror::get_id() const
 {
 	return id;
 }
