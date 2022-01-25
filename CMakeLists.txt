@@ -24,6 +24,9 @@ add_executable(mystorage
 	main.cpp
 	nbd.cpp
 	net.cpp
+	socket_client.cpp
+	socket_client_ipv4.cpp
+	socket_client_ipv6.cpp
 	socket_listener.cpp
 	socket_listener_ipv4.cpp
 	storage_backend.cpp
