@@ -52,14 +52,26 @@ bool open_tun(const std::string & dev_name, int *const fd, int *const mtu_size)
 	if (ioctl(temp_fd, SIOCSIFFLAGS, &ifr_tap) == -1)
 		error_exit(true, myformat("aoe(%s): ioctl SIOCSIFFLAGS failed", dev_name.c_str()).c_str());
 
-	struct ifreq ifr_tap2 { 0 };
-	set_ifr_name(&ifr_tap2, dev_name);
-	ifr_tap2.ifr_addr.sa_family = AF_INET;
+	if (*mtu_size != 0) {
+		struct ifreq ifr_tap2 { 0 };
+		set_ifr_name(&ifr_tap2, dev_name);
+		ifr_tap2.ifr_addr.sa_family = AF_INET;
 
-	if (ioctl(temp_fd, SIOCGIFMTU, &ifr_tap2) == -1)
-		error_exit(true, myformat("aoe(%s): ioctl SIOCGIFMTU failed", dev_name.c_str()).c_str());
+		ifr_tap2.ifr_mtu = *mtu_size;
 
-	*mtu_size = ifr_tap2.ifr_mtu;
+		if (ioctl(temp_fd, SIOCSIFMTU, &ifr_tap2) == -1)
+			error_exit(true, myformat("aoe(%s): ioctl SIOCSIFMTU failed", dev_name.c_str()).c_str());
+	}
+	else {
+		struct ifreq ifr_tap2 { 0 };
+		set_ifr_name(&ifr_tap2, dev_name);
+		ifr_tap2.ifr_addr.sa_family = AF_INET;
+
+		if (ioctl(temp_fd, SIOCGIFMTU, &ifr_tap2) == -1)
+			error_exit(true, myformat("aoe(%s): ioctl SIOCGIFMTU failed", dev_name.c_str()).c_str());
+
+		*mtu_size = ifr_tap2.ifr_mtu;
+	}
 
 	dolog(ll_debug, "aoe(%s): MTU size: %d bytes", dev_name.c_str(), *mtu_size);
 
