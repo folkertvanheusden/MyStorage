@@ -14,9 +14,11 @@
 #include "str.h"
 
 
-aoe::aoe(const std::string & dev_name, storage_backend *const storage_backend, const uint8_t my_mac[6]) : sb(storage_backend)
+aoe::aoe(const std::string & dev_name, storage_backend *const storage_backend, const uint8_t my_mac[6], const int mtu_size_in) : sb(storage_backend)
 {
 	id = myformat("%d.%d", major, minor);
+
+	mtu_size = mtu_size_in > 0 ? mtu_size_in : 0;
 
 	if (open_tun(dev_name, &fd, &mtu_size) == false)
 		error_exit(false, "aoe(%s): failed creating network device \"%s\"", id.c_str(), dev_name.c_str());
@@ -59,7 +61,7 @@ bool aoe::announce()
 	// Configuration announcement payload
 	add_uint16(out, 16);  // buffer count
 	add_uint16(out, firmware_version);  // firmware version
-	out.push_back(2);    // max number of sectors in 1 command
+	out.push_back(std::min(255, (mtu_size - 36) / 512));    // max number of sectors in 1 command
 	out.push_back(0x10 | Ccmd_read);
 
 	add_uint16(out, 0);  // configuration length
@@ -136,7 +138,8 @@ void aoe::operator()()
 			out.at(26) = firmware_version >> 8;
 			out.at(27) = firmware_version & 255;
 
-			out.at(28) = 0;  // sector count
+			out.at(28) = std::min(255, (mtu_size - 36) / 512);  // max number of sectors in 1 command
+			dolog(ll_debug, "aoe::operator(%s): max. nr. of sectors per command: %d", id.c_str(), out.at(28));
 
 			out.at(29) = 0x10 | sub_command;  // version & sub command
 
@@ -233,7 +236,7 @@ void aoe::operator()()
 			else if (out[27] == 0x20 || out[27] == 0x24) {  // read sectors, max 28bit/48bit
 				lba &= out[27] == 0x20 ? 0x0fffffff : 0x0000ffffffffffffll;
 
-				dolog(ll_debug, "aoe::operator(%s): CommandATA: ReadSector(s) from LBA %llu", id.c_str(), lba);
+				dolog(ll_debug, "aoe::operator(%s): CommandATA: ReadSector(s) (%d) from LBA %llu", id.c_str(), out[26], lba);
 
 				int err = 0;
 				block *b = nullptr;

@@ -16,9 +16,9 @@
 
 int main(int argc, char *argv[])
 {
-	setlog("mystorage.log", ll_debug, ll_debug);
+	setlog("mystorage.log", ll_info, ll_info);
 
-	socket_listener *sl = new socket_listener_ipv4("0.0.0.0", 10829);
+	socket_listener *sl = new socket_listener_ipv4("0.0.0.0", 10809);
 
 	storage_backend *m1 = new storage_backend_file("mirror1", "/home/folkert/temp/mirror-file-mystorage.dat", { });
 	mirror_storage_backend *sm1 = new mirror_storage_backend("mirror1-sb", m1);
@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
 //	nbd *nbd_ = new nbd(sl, storage_backends);
 
 	constexpr uint8_t my_mac[] = { 0x32, 0x11, 0x22, 0x33, 0x44, 0x55 };
-	aoe *aoe_ = new aoe("ata", sb1, my_mac);
+	aoe *aoe_ = new aoe("ata", sb1, my_mac, -1);
 
 	getchar();
 

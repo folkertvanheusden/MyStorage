@@ -20,7 +20,7 @@ private:
 	bool announce();
 
 public:
-	aoe(const std::string & dev_name, storage_backend *const sb, const uint8_t my_mac[6]);
+	aoe(const std::string & dev_name, storage_backend *const sb, const uint8_t my_mac[6], const int mtu_size_in);
 	virtual ~aoe();
 
 	void operator()();
