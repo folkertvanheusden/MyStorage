@@ -258,6 +258,8 @@ void aoe::operator()()
 						break;
 					}
 				}
+
+				delete b;
 			}
 			else if (out[27] == 0x30 || out[27] == 0x34) {  // write sectors, max 28bit/48bit
 				lba &= out[27] == 0x30 ? 0x0fffffff : 0x0000ffffffffffffll;
