@@ -1,6 +1,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <thread>
+#include <arpa/inet.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -194,41 +195,32 @@ void aoe::operator()()
 
 				uint16_t response[256] { 0 };
 
-				response[5] = 512;  // bytes per sector
+				response[5] = htons(512);  // bytes per sector
 
 				memset(reinterpret_cast<char *>(&response[27]), ' ', 20);
 				memcpy(reinterpret_cast<char *>(&response[27]), "MyStorage", 9);  // model number
 
-				response[49] = 1 << 9;  // LBA supported
+				response[49] = htons(1 << 9);  // LBA supported
 
-				response[47] = 0x8000;  // as per spec
-				response[49] = 0x0300;  // as per spec
-				response[50] = 0x4000;  // capabilities
-				response[83] = (1 << 10 /* LBA48 */);
-				response[84] = 0x4000;  // from vblade
-				response[86] = (1 << 10 /* LBA48 */);
-				response[87] = 0x4000;  // from vblade
-				response[93] = 0x400b;  // from vblade
+				response[47] = htons(0x8000);  // as per spec
+				response[49] = htons(0x0300);  // as per spec
+				response[50] = htons(0x4000);  // capabilities
+				response[83] = htons(1 << 10 /* LBA48 */);
+				response[84] = htons(0x4000);  // from vblade
+				response[86] = htons(1 << 10 /* LBA48 */);
+				response[87] = htons(0x4000);  // from vblade
+				response[93] = htons(0x400b);  // from vblade
 
 				uint64_t sectors = sb->get_size() / 512;
 				dolog(ll_debug, "aoe::operator: CommandATA, IdentifyDrive: backend is %d sectors", sectors);
-				response[57] = sectors >> 16;  // current capacity in sectors
-				response[58] = sectors & 65535;
-
-				response[54] = sectors / (255 * 63);
-				response[55] = 255;
-				response[56] = 63;
-
-				// LBA28
-				response[60] = response[57] & 0x0fff;  // user addressable sectors (LBA)
-				response[61] = response[58];  // user addressable sectors (LBA)
 
 				// LBA48
 				response[69] = 0;  // if bit 3 is 0, then this is 48 bit, else 32
-				response[100] = sectors >> 48;
-				response[101] = sectors >> 32;
-				response[102] = sectors >> 16;
-				response[103] = sectors;
+
+				response[100] = htons(sectors);
+				response[101] = htons(sectors >> 16);
+				response[102] = htons(sectors >> 32);
+				response[103] = htons(sectors >> 48);
 
 				out.resize(36);
 				for(int i=0; i<256; i++)
