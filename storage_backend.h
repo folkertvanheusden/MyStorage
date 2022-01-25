@@ -4,16 +4,24 @@
 #include <vector>
 
 #include "block.h"
+#include "mirror.h"
 #include "types.h"
 
 
 class storage_backend
 {
-private:
+protected:
 	const std::string id;
 
+	bool do_mirror(const offset_t offset, const block & b);
+	bool do_sync_mirrors();
+	bool do_trim_zero(const offset_t offset, const uint32_t size);
+
+private:
+	const std::vector<mirror *> mirrors;
+
 public:
-	storage_backend(const std::string & id);
+	storage_backend(const std::string & id, const std::vector<mirror *> & mirrors);
 	virtual ~storage_backend();
 
 	std::string get_identifier() const;

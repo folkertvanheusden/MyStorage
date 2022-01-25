@@ -19,10 +19,14 @@ add_executable(mystorage
 	compresser_lzo.cpp
 	compresser_zlib.cpp
 	error.cpp
+	hash.cpp
+	hash_sha384.cpp
 	io.cpp
 	lock_group.cpp
 	logging.cpp
 	main.cpp
+	mirror.cpp
+	mirror_storage_backend.cpp
 	nbd.cpp
 	net.cpp
 	socket_listener.cpp
@@ -50,3 +54,8 @@ pkg_check_modules(LZO2 REQUIRED lzo2)
 target_link_libraries(mystorage ${LZO2_LIBRARIES})
 target_include_directories(mystorage PUBLIC ${LZO2_INCLUDE_DIRS})
 target_compile_options(mystorage PUBLIC ${LZO2_CFLAGS_OTHER})
+
+pkg_check_modules(CRYPTOPP REQUIRED libcrypto++)
+target_link_libraries(mystorage ${CRYPTOPP_LIBRARIES})
+target_include_directories(mystorage PUBLIC ${CRYPTOPP_INCLUDE_DIRS})
+target_compile_options(mystorage PUBLIC ${CRYPTOPP_CFLAGS_OTHER})
