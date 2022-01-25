@@ -20,6 +20,9 @@ int main(int argc, char *argv[])
 	setlog("mystorage.log", ll_info, ll_info);
 	dolog(ll_info, "MyStorage starting");
 
+	constexpr uint8_t aoe_client_mac[] = { 0x32, 0x00, 0x11, 0x22, 0x33, 0x44 };
+	storage_backend_aoe *sb_aoe = new storage_backend_aoe("aoe", { }, "c_aoe", aoe_client_mac, 66, 6, 0);
+
 	socket_listener *sl = new socket_listener_ipv4("0.0.0.0", 10809);
 
 	storage_backend *m1 = new storage_backend_file("mirror1", "/home/folkert/temp/mirror-file-mystorage.dat", { });
@@ -41,12 +44,12 @@ int main(int argc, char *argv[])
 
 	storage_backend *sb4 = new storage_backend_file("file2", "/home/folkert/temp/ramdisk/test.dat", { });
 
-	std::vector<storage_backend *> storage_backends { sb1, sb2, sb3, sb4 };
+	std::vector<storage_backend *> storage_backends { sb1, sb2, sb3, sb4, sb_aoe };
 
 	nbd *nbd_ = new nbd(sl, storage_backends);
 
 	constexpr uint8_t my_mac[] = { 0x32, 0x11, 0x22, 0x33, 0x44, 0x55 };
-	aoe *aoe_ = new aoe("ata", sb4, my_mac, -1);
+	aoe *aoe_ = new aoe("ata", sb4, my_mac, 0);
 
 	getchar();
 	dolog(ll_info, "MyStorage terminating");

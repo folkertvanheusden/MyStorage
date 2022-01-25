@@ -4,14 +4,13 @@
 #include "block.h"
 
 
-block::block(const uint8_t *const data, const size_t len) : data(static_cast<uint8_t *>(malloc(len))), len(len)
+block::block(const uint8_t *const data, const size_t len) : data(data), len(len)
 {
-	memcpy(this->data, data, len);
 }
 
 block::~block()
 {
-	free(data);
+	free(const_cast<uint8_t *>(data));
 }
 
 size_t block::get_size() const

@@ -65,8 +65,6 @@ void storage_backend_file::get_data(const offset_t offset, const uint32_t size, 
 	}
 
 	*b = new block(buffer, size);
-
-	free(buffer);
 }
 
 void storage_backend_file::put_data(const offset_t offset, const block & b, int *const err)

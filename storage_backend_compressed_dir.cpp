@@ -185,8 +185,6 @@ void storage_backend_compressed_dir::get_data(const offset_t offset, const uint3
 
 	*b = new block(out, out_size);
 
-	free(out);
-
 	un_lock_block_group(offset, size, false, true);
 }
 

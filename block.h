@@ -3,9 +3,11 @@
 #include <stdlib.h>
 
 
+// This class is a wrapper around a pointer/size pair.
+// The owner ship of the data it wraps is moved to the block class!
 class block {
 private:
-	uint8_t *const data;
+	const uint8_t *const data;
 	const size_t len;
 
 public:
