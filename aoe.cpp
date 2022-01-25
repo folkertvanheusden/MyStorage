@@ -1,66 +1,24 @@
 #include <fcntl.h>
 #include <string.h>
 #include <thread>
-#include <linux/if.h>
-#include <linux/if_arp.h>
-#include <linux/if_tun.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
 #include "aoe.h"
+#include "aoe-generic.h"
 #include "error.h"
 #include "logging.h"
 #include "net.h"
 
 
-#define AoE_EtherType 0x88a2
-
-#define CommandATA	0
-#define CommandInfo	1
-#define CommandMacMask	2
-#define CommandResRel	3
-
-#define Ccmd_read	0
-#define Ccmd_test	1
-#define Ccmd_test_prefix	2
-#define Ccmd_set_config	3
-#define Ccmd_force_set_config	4
-
-#define E_BadCmd	1
-#define E_BadArg	2
-#define E_DevUnavailable	3
-#define E_ConfigErr	4
-#define E_BadVersion	5
-
-#define FlagR		8  // reply
-#define FlagE		4  // error
-
-void set_ifr_name(struct ifreq *ifr, const std::string & dev_name)
-{
-	size_t copy_name_n = std::min(size_t(IFNAMSIZ), dev_name.size());
-
-	memcpy(ifr->ifr_name, dev_name.c_str(), copy_name_n);
-
-	ifr->ifr_name[IFNAMSIZ - 1] = 0x00;
-}
-
 aoe::aoe(const std::string & dev_name, storage_backend *const storage_backend, const uint8_t my_mac[6]) : sb(storage_backend)
 {
-	if ((fd = open("/dev/net/tun", O_RDWR)) == -1)
-		error_exit(true, "aoe: cannot open /dev/net/tun");
-
-	if (fcntl(fd, F_SETFD, FD_CLOEXEC) == -1)
-		error_exit(true, "aoe: settinf FD_CLOEXEC on fd failed");
+	fd = open_tun(dev_name);
+	if (fd == -1)
+		error_exit(false, "aoe: failed creating network device \"%s\"", dev_name.c_str());
 
 	memcpy(this->my_mac, my_mac, 6);
-
-	struct ifreq ifr_tap { 0 };
-	ifr_tap.ifr_flags = IFF_TAP | IFF_NO_PI;
-	set_ifr_name(&ifr_tap, dev_name);
-
-	if (ioctl(fd, TUNSETIFF, &ifr_tap) == -1)
-		error_exit(true, "aoe: ioctl TUNSETIFF failed");
 
 	th = new std::thread(std::ref(*this));
 }

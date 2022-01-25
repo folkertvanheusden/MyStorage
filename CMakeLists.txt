@@ -14,6 +14,7 @@ add_compile_options(-Wall -pedantic)
 
 add_executable(mystorage
 	aoe.cpp
+	aoe-generic.cpp
 	block.cpp
 	compresser.cpp
 	compresser_lzo.cpp
