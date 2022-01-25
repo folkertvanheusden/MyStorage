@@ -9,6 +9,7 @@ private:
 	storage_backend *const sb;
 	uint8_t                my_mac[6];
 	int                    fd { -1 };
+	int                    mtu_size { 1500 };
 	std::thread           *th { nullptr };
 	uint8_t                configuration[1024] { 0 };
 	int                    major { 0x0001 };

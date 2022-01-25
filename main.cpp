@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
 {
 	setlog("mystorage.log", ll_debug, ll_debug);
 
-	socket_listener *sl = new socket_listener_ipv4("0.0.0.0", 10899);
+	socket_listener *sl = new socket_listener_ipv4("0.0.0.0", 10829);
 
 	storage_backend *m1 = new storage_backend_file("mirror1", "/home/folkert/temp/mirror-file-mystorage.dat", { });
 	mirror_storage_backend *sm1 = new mirror_storage_backend("mirror1-sb", m1);

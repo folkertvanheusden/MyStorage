@@ -1,6 +1,4 @@
 #include <string>
-#include <net/if.h>
-#include <sys/ioctl.h>
 
 
 #define AoE_EtherType 0x88a2
@@ -25,5 +23,4 @@
 #define FlagR		8  // reply
 #define FlagE		4  // error
 
-void set_ifr_name(struct ifreq *ifr, const std::string & dev_name);
-int open_tun(const std::string & dev_name);
+bool open_tun(const std::string & dev_name, int *const fd, int *const mtu_size);

@@ -18,8 +18,7 @@ aoe::aoe(const std::string & dev_name, storage_backend *const storage_backend, c
 {
 	id = myformat("%d.%d", major, minor);
 
-	fd = open_tun(dev_name);
-	if (fd == -1)
+	if (open_tun(dev_name, &fd, &mtu_size) == false)
 		error_exit(false, "aoe(%s): failed creating network device \"%s\"", id.c_str(), dev_name.c_str());
 
 	memcpy(this->my_mac, my_mac, 6);
@@ -66,7 +65,7 @@ bool aoe::announce()
 	add_uint16(out, 0);  // configuration length
 
 	if (write(fd, out.data(), out.size()) != ssize_t(out.size())) {
-		dolog(ll_error, "aoe::operator(%s): failed to tansmit Ethernet frame: %s", id.c_str(), strerror(errno));
+		dolog(ll_error, "aoe::operator(%s): failed to tansmit Ethernet frame: %s (announce)", id.c_str(), strerror(errno));
 		return false;
 	}
 
@@ -174,7 +173,7 @@ void aoe::operator()()
 				dolog(ll_debug, "aoe::operator(%s): send response to %d (%zu bytes)", id.c_str(), sub_command, out.size());
 
 				if (write(fd, out.data(), out.size()) != ssize_t(out.size())) {
-					dolog(ll_error, "aoe::operator(%s): failed to tansmit Ethernet frame: %s", id.c_str(), strerror(errno));
+					dolog(ll_error, "aoe::operator(%s): failed to tansmit Ethernet frame: %s (Info)", id.c_str(), strerror(errno));
 					break;
 				}
 			}
@@ -227,7 +226,7 @@ void aoe::operator()()
 					add_uint16(out, htons(response[i]));
 
 				if (write(fd, out.data(), out.size()) != ssize_t(out.size())) {
-					dolog(ll_error, "aoe::operator(%s): failed to transmit Ethernet frame: %s", id.c_str(), strerror(errno));
+					dolog(ll_error, "aoe::operator(%s): failed to transmit Ethernet frame: %s (Identify)", id.c_str(), strerror(errno));
 					break;
 				}
 			}
@@ -252,7 +251,7 @@ void aoe::operator()()
 						out.push_back(b->get_data()[i]);
 
 					if (write(fd, out.data(), out.size()) != ssize_t(out.size())) {
-						dolog(ll_error, "aoe::operator(%s): failed to transmit Ethernet frame: %s (%zu bytes)", id.c_str(), strerror(errno), out.size());
+						dolog(ll_error, "aoe::operator(%s): failed to transmit Ethernet frame: %s (%zu bytes, ReadSector)", id.c_str(), strerror(errno), out.size());
 						break;
 					}
 				}
@@ -276,7 +275,7 @@ void aoe::operator()()
 					out.resize(36);
 
 					if (write(fd, out.data(), out.size()) != ssize_t(out.size())) {
-						dolog(ll_error, "aoe::operator(%s): failed to transmit Ethernet frame: %s (%zu bytes)", id.c_str(), strerror(errno), out.size());
+						dolog(ll_error, "aoe::operator(%s): failed to transmit Ethernet frame: %s (%zu bytes, WriteSector)", id.c_str(), strerror(errno), out.size());
 						break;
 					}
 				}
