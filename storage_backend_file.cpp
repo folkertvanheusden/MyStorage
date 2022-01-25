@@ -91,12 +91,6 @@ void storage_backend_file::put_data(const offset_t offset, const block & b, int 
 		dolog(ll_error, "storage_backend_file::put_data(%s): failed to send block (%zu bytes) to mirror(s) at offset %lu", id.c_str(), len, offset);
 		return;
 	}
-
-	if (do_mirror(offset, b) == false) {
-		*err = EIO;
-		dolog(ll_error, "storage_backend_file::put_data(%s): failed to send block (%zu bytes) to mirror(s) at offset %lu", id.c_str(), len, offset);
-		return;
-	}
 }
 
 bool storage_backend_file::fsync()
@@ -148,7 +142,7 @@ bool storage_backend_file::trim_zero(const offset_t offset, const uint32_t len, 
 	}
 #endif
 
-	if (do_trim_zero(offset, len) == false) {
+	if (do_trim_zero(offset, len, trim) == false) {
 		dolog(ll_error, "storage_backend_file::trim_zero(%s): failed to send to mirror(s)", id.c_str());
 		return false;
 	}

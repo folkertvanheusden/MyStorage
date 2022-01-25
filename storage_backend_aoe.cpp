@@ -491,6 +491,12 @@ void storage_backend_aoe::put_data(const offset_t offset, const block & b, int *
 		work_offset += 512;
 		work_buffer += 512;
 	}
+
+	if (do_mirror(offset, b) == false) {
+		*err = EIO;
+		dolog(ll_error, "storage_backend_aoe::put_data(%s): failed to send block (%zu bytes) to mirror(s) at offset %lu", id.c_str(), b.get_size(), offset);
+		return;
+	}
 }
 
 bool storage_backend_aoe::fsync()
@@ -552,6 +558,11 @@ bool storage_backend_aoe::fsync()
 		// OK!
 
 		break;
+	}
+
+	if (do_sync_mirrors() == false) {
+		dolog(ll_error, "storage_backend_aoe::fsync(%s): failed to sync data to mirror(s)", id.c_str());
+		return false;
 	}
 
 	return true;
@@ -625,6 +636,11 @@ bool storage_backend_aoe::trim_zero(const offset_t offset, const uint32_t len, c
 			break;
 		}
 
+		if (do_trim_zero(offset, len, trim) == false) {
+			dolog(ll_error, "storage_backend_aoe::trim_zero(%s): failed to send to mirror(s)", id.c_str());
+			return false;
+		}
+
 		return true;
 	}
 	else {
@@ -633,6 +649,11 @@ bool storage_backend_aoe::trim_zero(const offset_t offset, const uint32_t len, c
 		uint8_t *data0x00 = reinterpret_cast<uint8_t *>(calloc(1, len));
 
 		put_data(offset, block(data0x00, len), err);
+
+		if (do_trim_zero(offset, len, trim) == false) {
+			dolog(ll_error, "storage_backend_aoe::trim_zero(%s): failed to send to mirror(s)", id.c_str());
+			return false;
+		}
 
 		return *err == 0;
 	}

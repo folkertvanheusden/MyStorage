@@ -370,6 +370,7 @@ void nbd::handle_client(const int fd)
 
 				case NBD_CMD_TRIM:
 				case NBD_CMD_WRITE_ZEROES:
+					dolog(ll_debug, "nbd::handle_client: trim/write-zeros");
 					storage_backends.at(current_sb)->trim_zero(offset.value(), length.value(), type.value() == NBD_CMD_TRIM, &err);
 
 					if (send_cmd_reply(fd, err, handle.value(), { }) == false) {

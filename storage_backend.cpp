@@ -50,12 +50,12 @@ bool storage_backend::do_sync_mirrors()
 	return ok;
 }
 
-bool storage_backend::do_trim_zero(const offset_t offset, const uint32_t size)
+bool storage_backend::do_trim_zero(const offset_t offset, const uint32_t size, const bool trim)
 {
 	bool ok = true;
 
 	for(auto m : mirrors) {
-		if (m->sync() == false) {
+		if (m->trim_zero(offset, size, trim) == false) {
 			ok = false;
 			dolog(ll_error, "storage_backend::do_trim_zero(%s): failed trim/zero mirror %s", id.c_str(), m->get_id().c_str());
 		}

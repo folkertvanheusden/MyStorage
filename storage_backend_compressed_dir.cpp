@@ -310,7 +310,7 @@ bool storage_backend_compressed_dir::trim_zero(const offset_t offset, const uint
 
 	un_lock_block_group(offset, len, false, false);
 
-	if (do_trim_zero(offset, len) == false) {
+	if (do_trim_zero(offset, len, trim) == false) {
 		dolog(ll_error, "storage_backend_compressed_dir::trim_zero(%s): failed to send to mirror(s)", id.c_str());
 		return false;
 	}
