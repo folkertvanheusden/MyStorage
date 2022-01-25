@@ -17,6 +17,7 @@
 int main(int argc, char *argv[])
 {
 	setlog("mystorage.log", ll_info, ll_info);
+	dolog(ll_info, "MyStorage starting");
 
 	socket_listener *sl = new socket_listener_ipv4("0.0.0.0", 10809);
 
@@ -37,19 +38,22 @@ int main(int argc, char *argv[])
 
 	std::vector<storage_backend *> storage_backends { sb1, sb2 };
 
-//	nbd *nbd_ = new nbd(sl, storage_backends);
+	nbd *nbd_ = new nbd(sl, storage_backends);
 
 	constexpr uint8_t my_mac[] = { 0x32, 0x11, 0x22, 0x33, 0x44, 0x55 };
 	aoe *aoe_ = new aoe("ata", sb1, my_mac, -1);
 
 	getchar();
+	dolog(ll_info, "MyStorage terminating");
 
 	delete aoe_;
-//	delete nbd_;
+	delete nbd_;
 	delete sb2;
 	delete c;
 	delete sb1;
-//	delete sl;
+	delete sl;
+
+	dolog(ll_info, "MyStorage stopped");
 
 	return 0;
 }

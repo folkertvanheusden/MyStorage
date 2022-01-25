@@ -14,7 +14,9 @@ public:
 	mirror(const std::string & id);
 	virtual ~mirror();
 
-	std::string get_id();
+	std::string get_id() const;
+
+	virtual offset_t get_size() const = 0;
 
 	virtual bool put_block(const offset_t o, const block & b) = 0;
 

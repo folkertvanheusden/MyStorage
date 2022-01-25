@@ -8,7 +8,7 @@
 class storage_backend_file : public storage_backend
 {
 private:
-	int fd { -1 };
+	int      fd { -1 };
 	offset_t size { 0 };
 
 public:

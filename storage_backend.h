@@ -16,6 +16,7 @@ protected:
 	bool do_mirror(const offset_t offset, const block & b);
 	bool do_sync_mirrors();
 	bool do_trim_zero(const offset_t offset, const uint32_t size);
+	bool verify_mirror_sizes();
 
 private:
 	const std::vector<mirror *> mirrors;

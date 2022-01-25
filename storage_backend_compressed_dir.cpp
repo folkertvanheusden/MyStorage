@@ -22,6 +22,8 @@ storage_backend_compressed_dir::storage_backend_compressed_dir(const std::string
 	dir_fd = dirfd(dir_structure);
 	if (dir_fd == -1)
 		error_exit(true, "storage_backend_compressed_dir(%s): failed to get file descriptor for open directory \"%s\"", id.c_str(), dir.c_str());
+
+	verify_mirror_sizes();
 }
 
 storage_backend_compressed_dir::~storage_backend_compressed_dir()
