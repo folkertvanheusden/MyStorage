@@ -175,7 +175,7 @@ void aoe::operator()()
 			out.at(26) = firmware_version >> 8;
 			out.at(27) = firmware_version & 255;
 
-			out.at(28) = 2;  // sector count
+			out.at(28) = 0;  // sector count
 
 			out.at(29) = 0x10 | sub_command;  // version & sub command
 
