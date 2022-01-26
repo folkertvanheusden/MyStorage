@@ -16,7 +16,7 @@
 #include "str.h"
 
 
-socket_listener_ipv4::socket_listener_ipv4(const char *const listen_addr, const int listen_port)
+socket_listener_ipv4::socket_listener_ipv4(const char *const listen_addr, const int listen_port) : listen_addr(listen_addr), listen_port(listen_port)
 {
 	fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (fd == -1)
@@ -49,6 +49,11 @@ socket_listener_ipv4::socket_listener_ipv4(const char *const listen_addr, const 
 
 socket_listener_ipv4::~socket_listener_ipv4()
 {
+}
+
+std::string socket_listener_ipv4::get_listen_address() const
+{
+	return myformat("[%s]:%d", listen_addr.c_str(), listen_port);
 }
 
 int socket_listener_ipv4::wait_for_client(std::atomic_bool *const stop_flag)

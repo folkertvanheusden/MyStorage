@@ -3,16 +3,15 @@
 #include <string>
 #include <vector>
 
+#include "base.h"
 #include "block.h"
 #include "mirror.h"
 #include "types.h"
 
 
-class storage_backend
+class storage_backend : public base
 {
 protected:
-	const std::string id;
-
 	bool do_mirror(const offset_t offset, const block & b);
 	bool do_sync_mirrors();
 	bool do_trim_zero(const offset_t offset, const uint32_t size, const bool trim);
@@ -25,7 +24,6 @@ public:
 	storage_backend(const std::string & id, const std::vector<mirror *> & mirrors);
 	virtual ~storage_backend();
 
-	std::string get_identifier() const;
 	virtual offset_t get_size() const = 0;
 
 	virtual void get_data(const offset_t offset, const uint32_t size, block **const b, int *const err) = 0;

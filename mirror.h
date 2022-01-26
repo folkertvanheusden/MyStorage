@@ -1,20 +1,16 @@
 #pragma once
 #include <string>
 
+#include "base.h"
 #include "block.h"
 #include "types.h"
 
 
-class mirror
+class mirror : public base
 {
-private:
-	const std::string id;
-
 public:
 	mirror(const std::string & id);
 	virtual ~mirror();
-
-	std::string get_id() const;
 
 	virtual offset_t get_size() const = 0;
 

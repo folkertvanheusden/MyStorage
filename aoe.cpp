@@ -26,6 +26,8 @@ aoe::aoe(const std::string & dev_name, storage_backend *const storage_backend, c
 
 	memcpy(this->my_mac, my_mac, 6);
 
+	storage_backend->acquire(this);
+
 	th = new std::thread(std::ref(*this));
 }
 
@@ -38,6 +40,8 @@ aoe::~aoe()
 
 	th->join();
 	delete th;
+
+	sb->release(this);
 }
 
 bool aoe::announce()

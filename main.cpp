@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
 	nbd *nbd_ = new nbd(sl, storage_backends);
 
 	constexpr uint8_t my_mac[] = { 0x32, 0x11, 0x22, 0x33, 0x44, 0x55 };
-	aoe *aoe_ = new aoe("ata", sb4, my_mac, 0);
+	aoe *aoe_ = new aoe("ata", sb4, my_mac, 0, 11, 1);
 
 	for(;!stop_flag;)
 		pause();

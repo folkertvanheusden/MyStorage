@@ -8,10 +8,12 @@
 
 mirror_storage_backend::mirror_storage_backend(const std::string & id, storage_backend *const sb) : mirror(id), sb(sb)
 {
+	sb->acquire(this);
 }
 
 mirror_storage_backend::~mirror_storage_backend()
 {
+	sb->release(this);
 }
 
 offset_t mirror_storage_backend::get_size() const

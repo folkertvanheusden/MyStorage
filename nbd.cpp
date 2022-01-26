@@ -39,10 +39,15 @@
 typedef enum { nbd_st_init, nbd_st_client_flags, nbd_st_options, nbd_st_transmission, nbd_st_terminate } nbd_state_t;
 constexpr const char *const nbd_st_strings[] { "init", "client flags", "options", "transmission", "terminate" };
 
-nbd::nbd(socket_listener *const sl, const std::vector<storage_backend *> & storage_backends) : sl(sl), storage_backends(storage_backends)
+nbd::nbd(socket_listener *const sl, const std::vector<storage_backend *> & storage_backends) : base(sl->get_listen_address()), sl(sl), storage_backends(storage_backends)
 {
 	if (storage_backends.empty())
 		throw "nbd: backends list is empty";
+
+	sl->acquire(this);
+
+	for(auto sb : storage_backends)
+		sb->acquire(this);
 
 	th = new std::thread(std::ref(*this));
 }
@@ -55,6 +60,11 @@ nbd::~nbd()
 		t->join();
 		delete t;
 	}
+
+	sl->release(this);
+
+	for(auto sb : storage_backends)
+		sb->release(this);
 }
 
 bool nbd::send_option_reply(const int fd, const uint32_t opt, const uint32_t reply_type, const std::vector<uint8_t> & data)
@@ -113,7 +123,7 @@ std::optional<size_t> nbd::find_storage_backend_by_id(const std::string & id)
 	}
 
 	for(size_t idx=0; idx<storage_backends.size(); idx++) {
-		if (storage_backends.at(idx)->get_identifier() == id)
+		if (storage_backends.at(idx)->get_id() == id)
 			return idx;
 	}
 

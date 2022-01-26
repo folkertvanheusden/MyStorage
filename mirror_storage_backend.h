@@ -10,7 +10,6 @@
 class mirror_storage_backend : public mirror
 {
 private:
-	const std::string id;
 	storage_backend *const sb;
 
 public:

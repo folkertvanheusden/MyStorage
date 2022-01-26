@@ -2,12 +2,16 @@
 #include "storage_backend.h"
 
 
-storage_backend::storage_backend(const std::string & id, const std::vector<mirror *> & mirrors) : id(id), mirrors(mirrors)
+storage_backend::storage_backend(const std::string & id, const std::vector<mirror *> & mirrors) : base(id), mirrors(mirrors)
 {
+	for(auto m : mirrors)
+		m->acquire(this);
 }
 
 storage_backend::~storage_backend()
 {
+	for(auto m : mirrors)
+		m->release(this);
 }
 
 bool storage_backend::verify_mirror_sizes()
@@ -71,9 +75,4 @@ void storage_backend::put_data(const offset_t offset, const std::vector<uint8_t>
 	block b(d);
 
 	put_data(offset, b, err);
-}
-
-std::string storage_backend::get_identifier() const
-{
-	return id;
 }
