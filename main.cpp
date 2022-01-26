@@ -5,6 +5,7 @@
 #include "compresser.h"
 #include "compresser_zlib.h"
 #include "compresser_lzo.h"
+#include "hash_sha384.h"
 #include "logging.h"
 #include "mirror.h"
 #include "mirror_storage_backend.h"
@@ -12,6 +13,7 @@
 #include "socket_listener_ipv4.h"
 #include "storage_backend_aoe.h"
 #include "storage_backend_compressed_dir.h"
+#include "storage_backend_dedup.h"
 #include "storage_backend_file.h"
 
 
@@ -49,10 +51,12 @@ int main(int argc, char *argv[])
 //	mirrors3.push_back(sm3);
 //	storage_backend *sb5 = new storage_backend_file("file3", "/home/folkert/temp/mystorage16M.dat", mirrors3);
 
-	constexpr uint8_t aoe_client_mac2[] = { 0x32, 0x00, 0x11, 0x22, 0x33, 0x55 };
-	storage_backend_aoe *sb6 = new storage_backend_aoe("aoe2", { }, "c_aoe2", aoe_client_mac2, 66, 6, 0);
+//	constexpr uint8_t aoe_client_mac2[] = { 0x32, 0x00, 0x11, 0x22, 0x33, 0x55 };
+//	storage_backend_aoe *sb6 = new storage_backend_aoe("aoe2", { }, "c_aoe2", aoe_client_mac2, 66, 6, 0);
 
-	std::vector<storage_backend *> storage_backends { sb1, sb2, sb3, sb4, /*sb5,*/ sb6 };
+	storage_backend_dedup sbd("sbd", "/home/folkert/temp/dedup.kch", new hash_sha384(), { }, 4ll * 1024ll * 1024ll * 1024ll, 65536);
+
+	std::vector<storage_backend *> storage_backends { sb1, sb2, sb3, sb4, /*sb5, sb6,*/ &sbd };
 
 	nbd *nbd_ = new nbd(sl, storage_backends);
 
