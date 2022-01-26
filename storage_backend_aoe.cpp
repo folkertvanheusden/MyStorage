@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <poll.h>
 #include <string>
 #include <string.h>
@@ -308,6 +309,7 @@ void storage_backend_aoe::get_data(const offset_t offset, const uint32_t size, b
 	aa.n_sectors = 1;
 
 	uint8_t recv_buffer[65536] { 0 };
+	const aoe_ata_t *const aa_rb = reinterpret_cast<const aoe_ata_t *>(recv_buffer);
 
 	while(work_size > 0) {
 		aa.aeh.tag = rand();
@@ -321,12 +323,12 @@ void storage_backend_aoe::get_data(const offset_t offset, const uint32_t size, b
 		aa.lba[5] = sector >> 40;
 
 		if (do_ata_command(&aa, sizeof aa, recv_buffer, sizeof recv_buffer, err) == false) {
-			dolog(ll_debug, "storage_backend_aoe::get_data(%s): device refused ATAPI command", id.c_str());
+			dolog(ll_error, "storage_backend_aoe::get_data(%s): device refused ATAPI command", id.c_str());
 			break;
 		}
 
 		// add to buffer
-		memcpy(work_buffer, aa.data, 512);
+		memcpy(work_buffer, aa_rb->data, 512);
 
 		work_size -= 512;
 		work_offset += 512;
@@ -335,8 +337,11 @@ void storage_backend_aoe::get_data(const offset_t offset, const uint32_t size, b
 
 	if (*err)
 		free(buffer);
-	else
+	else {
+		assert(work_buffer - buffer == size);
+
 		*b = new block(buffer, size);
+	}
 }
 
 void storage_backend_aoe::put_data(const offset_t offset, const block & b, int *const err)
@@ -486,7 +491,7 @@ bool storage_backend_aoe::do_ata_command(aoe_ata_t *const aa_in, const int len, 
 
 	for(;;) {
 		if (send && write(connection.fd, aa_in, len) != len) {
-			dolog(ll_warning, "storage_backend_aoe(%s)::do_ata_command: failed to transmit DataSetManagement msg", id.c_str());
+			dolog(ll_warning, "storage_backend_aoe(%s)::do_ata_command: failed to transmit msg", id.c_str());
 			*err = EIO;
 			return false;
 		}
@@ -539,7 +544,7 @@ bool storage_backend_aoe::do_ata_command(aoe_ata_t *const aa_in, const int len, 
 		}
 
 		if ((aa->aeh.error & FlagE) || aa->error) {
-			dolog(ll_debug, "storage_backend_aoe::do_ata_command(%s): server indicated error (%d|%d)", id.c_str(), aa->aeh.error, aa->error);
+			dolog(ll_warning, "storage_backend_aoe::do_ata_command(%s): server indicated error (%d|%d)", id.c_str(), aa->aeh.error, aa->error);
 			*err = EIO;
 			return false;
 		}
