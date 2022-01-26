@@ -37,6 +37,7 @@
 #define NBD_REP_INFO		3
 
 typedef enum { nbd_st_init, nbd_st_client_flags, nbd_st_options, nbd_st_transmission, nbd_st_terminate } nbd_state_t;
+constexpr const char *const nbd_st_strings[] { "init", "client flags", "options", "transmission", "terminate" };
 
 nbd::nbd(socket_listener *const sl, const std::vector<storage_backend *> & storage_backends) : sl(sl), storage_backends(storage_backends)
 {
@@ -123,7 +124,7 @@ void nbd::handle_client(const int fd)
 	bool use_0x00_padding = true;
 
 	for(;state != nbd_st_terminate;) {
-		dolog(ll_debug, "nbd::handle_client: state: %d", state);
+		dolog(ll_debug, "nbd::handle_client: state: \"%s\" (%d)", nbd_st_strings[state], state);
 
 		if (state == nbd_st_init) {
 			std::vector<uint8_t> msg;
