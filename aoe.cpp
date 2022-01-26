@@ -35,6 +35,9 @@ aoe::~aoe()
 {
 	stop();
 
+	if (fd != -1)
+		close(fd);
+
 	th->join();
 	delete th;
 }

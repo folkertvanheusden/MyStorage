@@ -87,6 +87,9 @@ int main(int argc, char *argv[])
 	delete sb1;
 	delete sl;
 
+	fflush(nullptr);
+	sync();
+
 	dolog(ll_info, "MyStorage stopped");
 
 	return 0;

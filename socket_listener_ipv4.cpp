@@ -48,7 +48,6 @@ socket_listener_ipv4::socket_listener_ipv4(const char *const listen_addr, const 
 
 socket_listener_ipv4::~socket_listener_ipv4()
 {
-	close(fd);
 }
 
 int socket_listener_ipv4::wait_for_client(std::atomic_bool *const stop_flag)
