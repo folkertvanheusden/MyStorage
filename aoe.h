@@ -7,7 +7,7 @@
 class aoe : public base
 {
 private:
-	storage_backend *const sb;
+	storage_backend *const sb { nullptr };
 	uint8_t                my_mac[6];
 	int                    fd { -1 };
 	int                    mtu_size { 1500 };

@@ -3,9 +3,8 @@
 #include "socket_client.h"
 
 
-socket_client::socket_client()
+socket_client::socket_client() : fd(-1)
 {
-	fd = -1;
 }
 
 socket_client::~socket_client()

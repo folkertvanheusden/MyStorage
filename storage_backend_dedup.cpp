@@ -20,9 +20,10 @@
 storage_backend_dedup::storage_backend_dedup(const std::string & id, const std::string & file, hash *const h, const std::vector<mirror *> & mirrors, const offset_t size, const int block_size) : storage_backend(id, mirrors), h(h), size(size), block_size(block_size)
 {
 	if (db.open(myformat("%s#*", file.c_str()), kyotocabinet::PolyDB::OWRITER | kyotocabinet::PolyDB::OCREATE) == false)
-		error_exit(false, "storage_backend_dedup: failed to access DB-file \"%s\": %s", file.c_str(), db.error().message());
+		throw myformat("storage_backend_dedup: failed to access DB-file \"%s\": %s", file.c_str(), db.error().message());
 
-	verify_mirror_sizes();
+	if (!verify_mirror_sizes())
+		throw myformat("storage_backend_dedup(%s): mirrors sanity check failed", file.c_str());
 }
 
 storage_backend_dedup::~storage_backend_dedup()

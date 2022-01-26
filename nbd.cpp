@@ -42,7 +42,7 @@ constexpr const char *const nbd_st_strings[] { "init", "client flags", "options"
 nbd::nbd(socket_listener *const sl, const std::vector<storage_backend *> & storage_backends) : sl(sl), storage_backends(storage_backends)
 {
 	if (storage_backends.empty())
-		error_exit(true, "nbd::nbd: backends list is empty");
+		throw "nbd: backends list is empty";
 
 	th = new std::thread(std::ref(*this));
 }

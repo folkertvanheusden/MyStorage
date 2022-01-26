@@ -24,7 +24,7 @@ aoe::aoe(const std::string & dev_name, storage_backend *const storage_backend, c
 	mtu_size = mtu_size_in > 0 ? mtu_size_in : 0;
 
 	if (open_tun(dev_name, &fd, &mtu_size) == false)
-		error_exit(false, "aoe(%s): failed creating network device \"%s\"", id.c_str(), dev_name.c_str());
+		throw myformat("aoe(%s): failed creating network device \"%s\"", id.c_str(), dev_name.c_str());
 
 	memcpy(this->my_mac, my_mac, 6);
 

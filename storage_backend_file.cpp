@@ -1,4 +1,6 @@
+#include <errno.h>
 #include <fcntl.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -7,26 +9,28 @@
 #include "io.h"
 #include "logging.h"
 #include "storage_backend_file.h"
+#include "str.h"
 
 
 storage_backend_file::storage_backend_file(const std::string & id, const std::string & file, const std::vector<mirror *> & mirrors) : storage_backend(id, mirrors)
 {
 	fd = open(file.c_str(), O_RDWR);
 	if (fd == -1)
-		error_exit(true, "storage_backend_file(%s): failed to access \"%s\"", id.c_str(), file.c_str());
+		throw myformat("storage_backend_file(%s): failed to access \"%s\": %s", id.c_str(), file.c_str(), strerror(errno));
 
 	struct stat st { 0 };
 	if (fstat(fd, &st) == -1)
-		error_exit(true, "storage_backend_file(%s): failed to retrieve meta data from \"%s\"", id.c_str(), file.c_str());
+		throw myformat("storage_backend_file(%s): failed to retrieve meta data from \"%s\": %s", id.c_str(), file.c_str(), strerror(errno));
 
 	if (st.st_size & 4095)
-		error_exit(true, "storage_backend_file(%s): file not a multiple of 4096 in size (%ld)", id.c_str(), st.st_size);
+		throw myformat("storage_backend_file(%s): file not a multiple of 4096 in size (%ld)", id.c_str(), st.st_size);
 
 	size = st.st_size;
 
 	dolog(ll_debug, "storage_backend_file(%s): size is %zu bytes", id.c_str(), size);
 
-	verify_mirror_sizes();
+	if (!verify_mirror_sizes())
+		throw myformat("storage_backend_compressed_dir(%s): mirrors sanity check failed", id.c_str());
 }
 
 storage_backend_file::~storage_backend_file()

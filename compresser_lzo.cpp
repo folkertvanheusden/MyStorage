@@ -8,7 +8,7 @@
 compresser_lzo::compresser_lzo()
 {
         if (lzo_init() != LZO_E_OK)
-                error_exit(false, "compresser_lzo: lzo_init failed");
+                throw "compresser_lzo: lzo_init failed";
 }
 
 compresser_lzo::~compresser_lzo()

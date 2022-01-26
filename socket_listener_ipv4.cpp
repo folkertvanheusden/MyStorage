@@ -13,35 +13,36 @@
 #include "logging.h"
 #include "net.h"
 #include "socket_listener_ipv4.h"
+#include "str.h"
 
 
 socket_listener_ipv4::socket_listener_ipv4(const char *const listen_addr, const int listen_port)
 {
 	fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (fd == -1)
-		error_exit(true, "socket_listener_ipv4: failed to create socket");
+		throw myformat("socket_listener_ipv4: failed to create socket: %s", strerror(errno));
 
 	int reuse_addr = 1;
 	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse_addr, sizeof(reuse_addr)) == -1)
-		error_exit(true, "socket_listener_ipv4: failed to set \"re-use address\"");
+		throw myformat("socket_listener_ipv4: failed to set \"re-use address\": %s", strerror(errno));
 
 	struct sockaddr_in servaddr { 0 };
 	servaddr.sin_family = AF_INET;
 	servaddr.sin_port = htons(listen_port);
 
 	if (inet_aton(listen_addr, &servaddr.sin_addr) == -1)
-		error_exit(true, "socket_listener_ipv4: problem interpreting \"%s\"", listen_addr);
+		throw myformat("socket_listener_ipv4: problem interpreting \"%s\": %s", listen_addr, strerror(errno));
 
 	// Binding newly created socket to given IP and verification
 	if (bind(fd, reinterpret_cast<sockaddr *>(&servaddr), sizeof(servaddr)) == -1)
-		error_exit(true, "socket_listener_ipv4: failed to bind to [%s]:%d", listen_addr, listen_port);
+		throw myformat("socket_listener_ipv4: failed to bind to [%s]:%d: %s", listen_addr, listen_port, strerror(errno));
 
 	if (listen(fd, SOMAXCONN) == -1)
-		error_exit(true, "socket_listener_ipv4: failed to listen on socket");
+		throw myformat("socket_listener_ipv4: failed to listen on socket: %s", strerror(errno));
 
 	int qlen = SOMAXCONN;
 	if (setsockopt(fd, SOL_TCP, TCP_FASTOPEN, &qlen, sizeof(qlen)) == -1)
-		error_exit(true, "socket_listener_ipv4: failed to enable \"tcp fastopen\"");
+		throw myformat("socket_listener_ipv4: failed to enable \"tcp fastopen\": %s", strerror(errno));
 
 	dolog(ll_info, "socket_listener_ipv4: listening on [%s]:%d", listen_addr, listen_port);
 }

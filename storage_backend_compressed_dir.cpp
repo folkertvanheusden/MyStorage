@@ -1,4 +1,5 @@
 #include <dirent.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
@@ -17,13 +18,14 @@ storage_backend_compressed_dir::storage_backend_compressed_dir(const std::string
 {
 	dir_structure = opendir(dir.c_str());
 	if (!dir_structure)
-		error_exit(true, "storage_backend_compressed_dir(%s): failed to open directory \"%s\"", id.c_str(), dir.c_str());
+		throw myformat("storage_backend_compressed_dir(%s): failed to open directory \"%s\": %s", id.c_str(), dir.c_str(), strerror(errno));
 
 	dir_fd = dirfd(dir_structure);
 	if (dir_fd == -1)
-		error_exit(true, "storage_backend_compressed_dir(%s): failed to get file descriptor for open directory \"%s\"", id.c_str(), dir.c_str());
+		throw myformat("storage_backend_compressed_dir(%s): failed to get file descriptor for open directory \"%s\": %s", id.c_str(), dir.c_str(), strerror(errno));
 
-	verify_mirror_sizes();
+	if (!verify_mirror_sizes())
+		throw myformat("storage_backend_compressed_dir(%s): mirrors sanity check failed", id.c_str());
 }
 
 storage_backend_compressed_dir::~storage_backend_compressed_dir()
