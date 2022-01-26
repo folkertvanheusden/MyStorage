@@ -1,3 +1,4 @@
+#include <poll.h>
 #include <string>
 #include <string.h>
 #include <time.h>
@@ -28,44 +29,6 @@ storage_backend_aoe::~storage_backend_aoe()
 	if (connection.fd != -1)
 		close(connection.fd);
 }
-
-typedef struct __attribute__((packed))
-{
-	uint8_t   dst[6];
-	uint8_t   src[6];
-	uint16_t  type;
-	uint8_t   flags;
-	uint8_t   error;
-	uint16_t  major;
-	uint8_t   minor;
-	uint8_t   command;
-	uint32_t  tag;
-} aoe_ethernet_header_t;
-
-typedef struct __attribute__((packed))
-{
-	aoe_ethernet_header_t aeh;
-
-	uint16_t  n_buffers;
-	uint16_t  firmware_version;
-	uint8_t   n_sectors;
-	uint8_t   ver_cmd;
-	uint16_t  len;
-	uint8_t   data[1024];
-} aoe_configuration_t;
-
-typedef struct __attribute__((packed))
-{
-	aoe_ethernet_header_t aeh;
-
-	uint8_t aflags;
-	uint8_t error;
-	uint8_t n_sectors;
-	uint8_t command;
-	uint8_t lba[6];
-	uint16_t reserved;
-	uint16_t data[0];
-} aoe_ata_t;
 
 typedef enum { ACS_discover, ACS_discover_sent, ACS_identify, ACS_identify_sent, ACS_running, ACS_end } aoe_connect_state_t;
 constexpr const char *const ACSstrings[] = { "discover", "discover sent", "identify", "idenfity sent", "running", "end" };
@@ -345,43 +308,13 @@ void storage_backend_aoe::get_data(const offset_t offset, const uint32_t size, b
 		aa.lba[4] = sector >> 32;
 		aa.lba[5] = sector >> 40;
 
-		if (write(connection.fd, &aa, sizeof aa) != sizeof(aa)) {
-			dolog(ll_warning, "storage_backend_aoe(%s)::get_data: failed to transmit ReadSector msg", id.c_str());
-			*err = EIO;
-			break;
-		}
-
-		int n = read(connection.fd, recv_buffer, sizeof recv_buffer);
-		if (n == -1) {
-			dolog(ll_warning, "storage_backend_aoe(%s)::get_data: failed to receive ReadSector reply", id.c_str());
-			*err = EIO;
-			break;
-		}
-
-		if (aa.aeh.type != htons(AoE_EtherType)) {
-			dolog(ll_debug, "storage_backend_aoe(%s)::get_data: ignoring Ethernet frame of type %04x", id.c_str(), ntohs(aa.aeh.type));
-			continue;
-		}
-
-		if ((aa.aeh.flags & 4) || aa.aeh.error || aa.error) {
-			dolog(ll_debug, "storage_backend_aoe(%s)::get_data: error message from storage: %02x / %02x", id.c_str(), aa.aeh.error, aa.error);
-			*err = EIO;
-			break;
-		}
-
-		if (ntohs(aa.aeh.major) != major || aa.aeh.minor != minor) {
-			dolog(ll_debug, "storage_backend_aoe::get_data(%s): ignoring message from %d:%d", id.c_str(), aa.aeh.major, aa.aeh.minor);
-			continue;
-		}
-
-		if (n < 36 + 512) {
-			dolog(ll_warning, "storage_backend_aoe(%s)::get_data: reply too short to contain a complete sector", id.c_str());
-			*err = EIO;
+		if (do_ata_command(&aa, sizeof aa, recv_buffer, sizeof recv_buffer, err) == false) {
+			dolog(ll_debug, "storage_backend_aoe::get_data(%s): device refused ATAPI command", id.c_str());
 			break;
 		}
 
 		// add to buffer
-		memcpy(work_buffer, &aa.data, 512);
+		memcpy(work_buffer, aa.data, 512);
 
 		work_size -= 512;
 		work_offset += 512;
@@ -450,40 +383,10 @@ void storage_backend_aoe::put_data(const offset_t offset, const block & b, int *
 		aa->lba[4] = sector >> 32;
 		aa->lba[5] = sector >> 40;
 
-		memcpy(&aa->data, work_buffer, 512);
+		memcpy(aa->data, work_buffer, 512);
 
-		if (write(connection.fd, aa, send_size) != send_size) {
-			dolog(ll_warning, "storage_backend_aoe(%s)::put_data: failed to transmit WriteSector msg", id.c_str());
-			*err = EIO;
-			break;
-		}
-
-		int n = read(connection.fd, recv_buffer, sizeof recv_buffer);
-		if (n == -1) {
-			dolog(ll_warning, "storage_backend_aoe(%s)::put_data: failed to receive WriteSector reply", id.c_str());
-			*err = EIO;
-			break;
-		}
-
-		if (aa->aeh.type != htons(AoE_EtherType)) {
-			dolog(ll_debug, "storage_backend_aoe(%s)::put_data: ignoring Ethernet frame of type %04x", id.c_str(), ntohs(aa->aeh.type));
-			continue;
-		}
-
-		if ((aa->aeh.flags & 4) || aa->aeh.error || aa->error) {
-			dolog(ll_debug, "storage_backend_aoe(%s)::put_data: error message from storage: %02x / %02x", id.c_str(), aa->aeh.error, aa->error);
-			*err = EIO;
-			break;
-		}
-
-		if (ntohs(aa->aeh.major) != major || aa->aeh.minor != minor) {
-			dolog(ll_debug, "storage_backend_aoe::put_data(%s): ignoring message from %d:%d", id.c_str(), aa->aeh.major, aa->aeh.minor);
-			continue;
-		}
-
-		if ((aa->aeh.error & FlagE) || aa->error) {
-			dolog(ll_debug, "storage_backend_aoe::put_data(%s): server indicated error (%d|%d)", id.c_str(), aa->aeh.error, aa->error);
-			*err = EIO;
+		if (do_ata_command(aa, send_size, recv_buffer, sizeof recv_buffer, err) == false) {
+			dolog(ll_debug, "storage_backend_aoe::put_data(%s): device refused ATAPI command", id.c_str());
 			break;
 		}
 
@@ -491,6 +394,8 @@ void storage_backend_aoe::put_data(const offset_t offset, const block & b, int *
 		work_offset += 512;
 		work_buffer += 512;
 	}
+
+	free(aa);
 
 	if (do_mirror(offset, b) == false) {
 		*err = EIO;
@@ -521,43 +426,10 @@ bool storage_backend_aoe::fsync()
 
 	uint8_t recv_buffer[65536] { 0 };
 
-	for(;;) {
-		aa.aeh.tag = rand();
-
-		if (write(connection.fd, &aa, sizeof aa) != sizeof(aa)) {
-			dolog(ll_warning, "storage_backend_aoe(%s)::fsync: failed to transmit FlushCache msg", id.c_str());
-			return false;
-		}
-
-		int n = read(connection.fd, recv_buffer, sizeof recv_buffer);
-		if (n == -1) {
-			dolog(ll_warning, "storage_backend_aoe(%s)::fsync: failed to receive FlushCache reply", id.c_str());
-			return false;
-		}
-
-		if (aa.aeh.type != htons(AoE_EtherType)) {
-			dolog(ll_debug, "storage_backend_aoe(%s)::fsync: ignoring Ethernet frame of type %04x", id.c_str(), ntohs(aa.aeh.type));
-			continue;
-		}
-
-		if ((aa.aeh.flags & 4) || aa.aeh.error || aa.error) {
-			dolog(ll_debug, "storage_backend_aoe(%s)::fsync: error message from storage: %02x / %02x", id.c_str(), aa.aeh.error, aa.error);
-			return false;
-		}
-
-		if (ntohs(aa.aeh.major) != major || aa.aeh.minor != minor) {
-			dolog(ll_debug, "storage_backend_aoe::fsync(%s): ignoring message from %d:%d", id.c_str(), aa.aeh.major, aa.aeh.minor);
-			continue;
-		}
-
-		if ((aa.aeh.error & FlagE) || aa.error) {
-			dolog(ll_debug, "storage_backend_aoe::fsync(%s): server indicated error (%d|%d)", id.c_str(), aa.aeh.error, aa.error);
-			return false;
-		}
-
-		// OK!
-
-		break;
+	int err = 0;
+	if (do_ata_command(&aa, sizeof aa, recv_buffer, sizeof recv_buffer, &err) == false) {
+		dolog(ll_debug, "storage_backend_aoe::fsync(%s): device refused ATAPI command", id.c_str());
+		return false;
 	}
 
 	if (do_sync_mirrors() == false) {
@@ -568,78 +440,149 @@ bool storage_backend_aoe::fsync()
 	return true;
 }
 
+bool storage_backend_aoe::do_ata_command(aoe_ata_t *const aa_in, const int len, uint8_t *const recv_buffer, const int rb_size, int *const err)
+{
+	bool send = true;
+	struct pollfd fds[] = { { connection.fd, POLLIN, 0 } };
+
+	for(;;) {
+		if (send && write(connection.fd, aa_in, len) != len) {
+			dolog(ll_warning, "storage_backend_aoe(%s)::do_ata_command: failed to transmit DataSetManagement msg", id.c_str());
+			*err = EIO;
+			return false;
+		}
+
+		send = false;
+
+		int n = 0;
+
+		// wait 500ms for a reply, else: resend
+		if (poll(fds, 1, 500)) {
+			n = read(connection.fd, recv_buffer, rb_size);
+			if (n == -1) {
+				dolog(ll_warning, "storage_backend_aoe(%s)::do_ata_command: failed to receive DataSetManagement reply", id.c_str());
+				*err = EIO;
+				return false;
+			}
+		}
+		else {
+			send = true;
+			continue;
+		}
+
+		if (n < 36) {
+			dolog(ll_debug, "storage_backend_aoe(%s)::do_ata_command: packet too small", id.c_str());
+			continue;
+		}
+
+		const aoe_ata_t *const aa = reinterpret_cast<aoe_ata_t *>(recv_buffer);
+
+		if (aa->aeh.type != htons(AoE_EtherType)) {
+			dolog(ll_debug, "storage_backend_aoe(%s)::do_ata_command: ignoring Ethernet frame of type %04x", id.c_str(), ntohs(aa->aeh.type));
+			continue;
+		}
+
+		if ((aa->aeh.flags & 4) || aa->aeh.error || aa->error) {
+			dolog(ll_debug, "storage_backend_aoe(%s)::do_ata_command: error message from storage: %02x / %02x", id.c_str(), aa->aeh.error, aa->error);
+			*err = EIO;
+			return false;
+		}
+
+		if (ntohs(aa->aeh.major) != major || aa->aeh.minor != minor) {
+			dolog(ll_debug, "storage_backend_aoe::do_ata_command(%s): ignoring message from %d:%d", id.c_str(), ntohs(aa->aeh.major), aa->aeh.minor);
+			continue;
+		}
+
+		if (aa->aeh.tag != aa_in->aeh.tag) {
+			dolog(ll_debug, "storage_backend_aoe::do_ata_command(%s): tag mismatch (expected: %x, got: %x)", id.c_str(), aa_in->aeh.tag, aa->aeh.tag);
+			continue;
+		}
+
+		if ((aa->aeh.error & FlagE) || aa->error) {
+			dolog(ll_debug, "storage_backend_aoe::do_ata_command(%s): server indicated error (%d|%d)", id.c_str(), aa->aeh.error, aa->error);
+			*err = EIO;
+			return false;
+		}
+
+		// OK!
+
+		break;
+	}
+
+	return true;
+}
+
 bool storage_backend_aoe::trim_zero(const offset_t offset, const uint32_t len, const bool trim, int *const err)
 {
 	*err = 0;
 
+	if (offset & 511) {
+		dolog(ll_warning, "storage_backend_aoe::trim_zero(%s): offset must be multiple of 512 bytes (1 sector)", id.c_str());
+		*err = EIO;
+		return false;
+	}
+
+	if (len & 511) {
+		dolog(ll_warning, "storage_backend_aoe::trim_zero(%s): length must be multiple of 512 bytes (1 sector)", id.c_str());
+		*err = EIO;
+		return false;
+	}
+
 	if (trim) {
 		dolog(ll_debug, "storage_backend_aoe::trim_zero(%s): trim", id.c_str());
 
-		aoe_ata_t aa { 0 };
+		const size_t send_size = sizeof(aoe_ata_t) + 512;
+		aoe_ata_t *aa = reinterpret_cast<aoe_ata_t *>(calloc(1, send_size));
 
-		memset(aa.aeh.dst, 0xff, sizeof aa.aeh.dst);
-		memcpy(aa.aeh.src, my_mac, sizeof aa.aeh.src);
-		aa.aeh.type = htons(AoE_EtherType);
+		memset(aa->aeh.dst, 0xff, sizeof aa->aeh.dst);
+		memcpy(aa->aeh.src, my_mac, sizeof aa->aeh.src);
+		aa->aeh.type = htons(AoE_EtherType);
 
-		aa.aeh.flags   = 64;
-		aa.aeh.error   = 0;
-		aa.aeh.major   = htons(major);
-		aa.aeh.minor   = minor;
-		aa.aeh.command = CommandATA;
+		aa->aeh.flags   = 64;
+		aa->aeh.error   = 0;
+		aa->aeh.major   = htons(major);
+		aa->aeh.minor   = minor;
+		aa->aeh.command = CommandATA;
 
-		aa.aflags    = 64;  // LBA48 extended command
-		aa.command   = 0x06;  // data set management (trim)
-		aa.n_sectors = 0;
+		aa->aflags    = 64;  // LBA48 extended command
+		aa->command   = 0x06;  // data set management (trim)
+		aa->n_sectors = 0;
 
-		uint8_t recv_buffer[65536] { 0 };
+		offset_t work_offset = offset;
+		uint32_t work_len = len;
 
-		for(;;) {
-			aa.aeh.tag = rand();
+		while(work_len > 0) {
+			uint64_t entry = (uint64_t(1) << 48) | (work_offset / 512);
 
-			if (write(connection.fd, &aa, sizeof aa) != sizeof(aa)) {
-				dolog(ll_warning, "storage_backend_aoe(%s)::trim_zero: failed to transmit DataSetManagement msg", id.c_str());
-				*err = EIO;
+			aa->data[0] = entry;
+			aa->data[1] = entry >> 8;
+			aa->data[2] = entry >> 16;
+			aa->data[3] = entry >> 24;
+			aa->data[4] = entry >> 32;
+			aa->data[5] = entry >> 40;
+			aa->data[6] = entry >> 48;
+			aa->data[7] = entry >> 56;
+
+			uint8_t recv_buffer[65536] { 0 };
+			aa->aeh.tag = rand();
+
+			if (do_ata_command(aa, send_size, recv_buffer, sizeof recv_buffer, err) == false) {
+				dolog(ll_debug, "storage_backend_aoe::trim_zero(%s): device refused ATAPI command", id.c_str());
+				free(aa);
 				return false;
 			}
 
-			int n = read(connection.fd, recv_buffer, sizeof recv_buffer);
-			if (n == -1) {
-				dolog(ll_warning, "storage_backend_aoe(%s)::trim_zero: failed to receive DataSetManagement reply", id.c_str());
-				*err = EIO;
-				return false;
-			}
-
-			if (aa.aeh.type != htons(AoE_EtherType)) {
-				dolog(ll_debug, "storage_backend_aoe(%s)::trim_zero: ignoring Ethernet frame of type %04x", id.c_str(), ntohs(aa.aeh.type));
-				continue;
-			}
-
-			if ((aa.aeh.flags & 4) || aa.aeh.error || aa.error) {
-				dolog(ll_debug, "storage_backend_aoe(%s)::trim_zero: error message from storage: %02x / %02x", id.c_str(), aa.aeh.error, aa.error);
-				*err = EIO;
-				return false;
-			}
-
-			if (ntohs(aa.aeh.major) != major || aa.aeh.minor != minor) {
-				dolog(ll_debug, "storage_backend_aoe::trim_zero(%s): ignoring message from %d:%d", id.c_str(), aa.aeh.major, aa.aeh.minor);
-				continue;
-			}
-
-			if ((aa.aeh.error & FlagE) || aa.error) {
-				dolog(ll_debug, "storage_backend_aoe::trim_zero(%s): server indicated error (%d|%d)", id.c_str(), aa.aeh.error, aa.error);
-				*err = EIO;
-				return false;
-			}
-
-			// OK!
-
-			break;
+			work_len -= 512;
+			work_offset += 512;
 		}
 
 		if (do_trim_zero(offset, len, trim) == false) {
 			dolog(ll_error, "storage_backend_aoe::trim_zero(%s): failed to send to mirror(s)", id.c_str());
+			free(aa);
 			return false;
 		}
+
+		free(aa);
 
 		return true;
 	}
