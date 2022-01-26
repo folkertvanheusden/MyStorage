@@ -21,6 +21,7 @@ private:
 
 	bool connect() const;
 	bool do_ata_command(aoe_ata_t *const aa_in, const int len, uint8_t *const recv_buffer, const int rb_size, int *const err);
+	void wait_for_packet(uint8_t *const recv_buffer, const int rb_size, bool *const error, bool *const timeout, int *const n_data) const;
 
 public:
 	storage_backend_aoe(const std::string & id, const std::vector<mirror *> & mirrors, const std::string & dev_name, const uint8_t my_mac[6], const uint16_t major, const uint8_t minor, const int mtu_size);

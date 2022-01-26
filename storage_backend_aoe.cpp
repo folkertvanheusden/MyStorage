@@ -84,7 +84,7 @@ bool storage_backend_aoe::connect() const
 
 	uint32_t tag = rand();
 
-	char recv_buffer[65536] { 0 };  // maximum Ethernet frame size
+	uint8_t recv_buffer[65536] { 0 };  // maximum Ethernet frame size
 
 	for(;state != ACS_end;) {
 		dolog(ll_debug, "storage_backend_aoe::connect(%s): connect state \"%s\" (%d)", id.c_str(), ACSstrings[state], state);
@@ -117,10 +117,16 @@ bool storage_backend_aoe::connect() const
 			}
 		}
 		else if (state == ACS_discover_sent) {
-			int rc = read(connection.fd, recv_buffer, sizeof recv_buffer);
-			if (rc == -1)
+			int rc = 0;
+			bool read_error = false, timeout = false;
+			wait_for_packet(recv_buffer, sizeof recv_buffer, &read_error, &timeout, &rc);
+
+			if (read_error) {
 				dolog(ll_error, "storage_backend_aoe::connect(%s): problem receiving (%s)", id.c_str(), strerror(errno));
-			else {
+				break;
+			}
+
+			if (!timeout) {
 				const aoe_configuration_t *ac = reinterpret_cast<const aoe_configuration_t *>(recv_buffer);
 
 				if (time(nullptr) - state_since >= 1) {
@@ -183,10 +189,16 @@ bool storage_backend_aoe::connect() const
 			}
 		}
 		else if (state == ACS_identify_sent) {
-			int rc = read(connection.fd, recv_buffer, sizeof recv_buffer);
-			if (rc == -1)
+			int rc = 0;
+			bool read_error = false, timeout = false;
+			wait_for_packet(recv_buffer, sizeof recv_buffer, &read_error, &timeout, &rc);
+
+			if (read_error) {
 				dolog(ll_error, "storage_backend_aoe::connect(%s): problem receiving (%s)", id.c_str(), strerror(errno));
-			else {
+				break;
+			}
+
+			if (!timeout) {
 				const aoe_ata_t *aa = reinterpret_cast<const aoe_ata_t *>(recv_buffer);
 
 				if (time(nullptr) - state_since >= 1) {
@@ -440,10 +452,37 @@ bool storage_backend_aoe::fsync()
 	return true;
 }
 
+void storage_backend_aoe::wait_for_packet(uint8_t *const recv_buffer, const int rb_size, bool *const error, bool *const timeout, int *const n_data) const
+{
+	struct pollfd fds[] = { { connection.fd, POLLIN, 0 } };
+
+	*timeout = *error = false;
+	*n_data = 0;
+
+	int rc = poll(fds, 1, 500);
+	if (rc == -1) {
+		dolog(ll_warning, "storage_backend_aoe(%s)::wait_for_packet: poll error: %s", id.c_str(), strerror(errno));
+		*error = true;
+		return;
+	}
+
+	if (rc) {
+		*n_data = read(connection.fd, recv_buffer, rb_size);
+
+		if (*n_data == -1) {
+			dolog(ll_warning, "storage_backend_aoe(%s)::wait_for_packet: read error: %s", id.c_str(), strerror(errno));
+			*error = true;
+			return;
+		}
+	}
+	else {
+		*timeout = true;
+	}
+}
+
 bool storage_backend_aoe::do_ata_command(aoe_ata_t *const aa_in, const int len, uint8_t *const recv_buffer, const int rb_size, int *const err)
 {
 	bool send = true;
-	struct pollfd fds[] = { { connection.fd, POLLIN, 0 } };
 
 	for(;;) {
 		if (send && write(connection.fd, aa_in, len) != len) {
@@ -457,15 +496,16 @@ bool storage_backend_aoe::do_ata_command(aoe_ata_t *const aa_in, const int len, 
 		int n = 0;
 
 		// wait 500ms for a reply, else: resend
-		if (poll(fds, 1, 500)) {
-			n = read(connection.fd, recv_buffer, rb_size);
-			if (n == -1) {
-				dolog(ll_warning, "storage_backend_aoe(%s)::do_ata_command: failed to receive DataSetManagement reply", id.c_str());
-				*err = EIO;
-				return false;
-			}
+		bool read_error = false, timeout = false;
+		wait_for_packet(recv_buffer, rb_size, &read_error, &timeout, &n);
+
+		if (read_error) {
+			dolog(ll_debug, "storage_backend_aoe(%s)::do_ata_command: problem receiving", id.c_str());
+			*err = EIO;
+			return false;
 		}
-		else {
+
+		if (timeout) {
 			send = true;
 			continue;
 		}
