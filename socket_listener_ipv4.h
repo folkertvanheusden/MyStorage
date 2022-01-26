@@ -1,3 +1,5 @@
+#include <yaml-cpp/yaml.h>
+
 #include "socket_listener.h"
 
 
@@ -15,4 +17,6 @@ public:
 	std::string get_listen_address() const;
 
 	int wait_for_client(std::atomic_bool *const stop_flag) override;
+
+	YAML::Node emit_configuration() const override;
 };

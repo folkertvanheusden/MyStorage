@@ -17,7 +17,7 @@
 #include "str.h"
 
 
-aoe::aoe(const std::string & dev_name, storage_backend *const storage_backend, const uint8_t my_mac[6], const int mtu_size_in, const uint16_t major, const uint8_t minor) : base(myformat("%d.%d", major, minor)), sb(storage_backend), major(major), minor(minor)
+aoe::aoe(const std::string & dev_name, storage_backend *const storage_backend, const uint8_t my_mac[6], const int mtu_size_in, const uint16_t major, const uint8_t minor) : base(myformat("%d.%d", major, minor)), dev_name(dev_name), sb(storage_backend), major(major), minor(minor)
 {
 	mtu_size = mtu_size_in > 0 ? mtu_size_in : 0;
 
@@ -42,6 +42,23 @@ aoe::~aoe()
 	delete th;
 
 	sb->release(this);
+}
+
+YAML::Node aoe::emit_configuration() const
+{
+	YAML::Node out_cfg;
+	out_cfg["dev-name"] = dev_name;
+	out_cfg["storage-backend"] = sb->emit_configuration();
+	out_cfg["my-mac"] = myformat("%02x:%02x:%02x:%02x:%02x:%02x", my_mac[0], my_mac[1], my_mac[2], my_mac[3], my_mac[4], my_mac[5]);
+	out_cfg["mtu-size"] = mtu_size;
+	out_cfg["major"] = major;
+	out_cfg["minor"] = minor;
+
+	YAML::Node out;
+	out["type"] = "AoE";
+	out["cfg"] = out_cfg;
+
+	return out;
 }
 
 bool aoe::announce()

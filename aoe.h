@@ -1,4 +1,5 @@
 #include <thread>
+#include <yaml-cpp/yaml.h>
 
 #include "base.h"
 #include "storage_backend.h"
@@ -7,6 +8,7 @@
 class aoe : public base
 {
 private:
+	const std::string      dev_name;
 	storage_backend *const sb { nullptr };
 	uint8_t                my_mac[6];
 	int                    fd { -1 };
@@ -25,4 +27,6 @@ public:
 	virtual ~aoe();
 
 	void operator()();
+
+	YAML::Node emit_configuration() const override;
 };

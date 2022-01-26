@@ -17,7 +17,7 @@
 #include "str.h"
 
 
-storage_backend_dedup::storage_backend_dedup(const std::string & id, const std::string & file, hash *const h, const std::vector<mirror *> & mirrors, const offset_t size, const int block_size) : storage_backend(id, mirrors), h(h), size(size), block_size(block_size)
+storage_backend_dedup::storage_backend_dedup(const std::string & id, const std::string & file, hash *const h, const std::vector<mirror *> & mirrors, const offset_t size, const int block_size) : storage_backend(id, mirrors), h(h), size(size), block_size(block_size), file(file)
 {
 	if (db.open(myformat("%s#*", file.c_str()), kyotocabinet::PolyDB::OWRITER | kyotocabinet::PolyDB::OCREATE) == false)
 		throw myformat("storage_backend_dedup: failed to access DB-file \"%s\": %s", file.c_str(), db.error().message());
@@ -31,6 +31,26 @@ storage_backend_dedup::~storage_backend_dedup()
 	db.close();
 
 	dolog(ll_info, "~storage_backend_dedup: database closed");
+}
+
+YAML::Node storage_backend_dedup::emit_configuration() const
+{
+	std::vector<YAML::Node> out_mirrors;
+	for(auto m : mirrors)
+		out_mirrors.push_back(m->emit_configuration());
+
+	YAML::Node out_cfg;
+	out_cfg["name"] = id;
+	out_cfg["mirrors"] = out_mirrors;
+	out_cfg["file"] = file;
+	out_cfg["size"] = size;
+	out_cfg["block-size"] = block_size;
+
+	YAML::Node out;
+	out["type"] = "storage-backend-dedup";
+	out["cfg"] = out_cfg;
+
+	return out;
 }
 
 offset_t storage_backend_dedup::get_size() const

@@ -1,6 +1,7 @@
 #include <optional>
 #include <thread>
 #include <vector>
+#include <yaml-cpp/yaml.h>
 
 #include "base.h"
 #include "socket_listener.h"
@@ -27,4 +28,6 @@ public:
 	virtual ~nbd();
 
 	void operator()();
+
+	YAML::Node emit_configuration() const override;
 };

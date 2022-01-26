@@ -2,6 +2,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <vector>
+#include <yaml-cpp/yaml.h>
 
 #include "aoe.h"
 #include "compresser.h"
@@ -76,6 +77,23 @@ int main(int argc, char *argv[])
 
 	for(;!stop_flag;)
 		pause();
+
+	std::vector<YAML::Node> servers;
+	servers.push_back(nbd_->emit_configuration());
+	servers.push_back(aoe_->emit_configuration());
+
+	YAML::Node out;
+	out["type"] = "MyStorage";
+	out["cfg"] = servers;
+
+	YAML::Emitter output;
+	output << out;
+
+	FILE *fh = fopen("mystorage.yaml", "w");
+	if (fh) {
+		fprintf(fh, "%s", output.c_str());
+		fclose(fh);
+	}
 
 	dolog(ll_info, "MyStorage terminating");
 

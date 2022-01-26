@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <yaml-cpp/yaml.h>
 
 #include "block.h"
 #include "mirror.h"
@@ -23,4 +24,6 @@ public:
 	bool sync() override;
 
 	bool trim_zero(const offset_t offset, const uint32_t len, const bool trim) override;
+
+	YAML::Node emit_configuration() const override;
 };

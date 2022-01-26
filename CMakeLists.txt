@@ -71,3 +71,8 @@ pkg_check_modules(KC REQUIRED kyotocabinet)
 target_link_libraries(mystorage ${KC_LIBRARIES})
 target_include_directories(mystorage PUBLIC ${KC_INCLUDE_DIRS})
 target_compile_options(mystorage PUBLIC ${KC_CFLAGS_OTHER})
+
+pkg_check_modules(YAML REQUIRED yaml-cpp)
+target_link_libraries(mystorage ${YAML_LIBRARIES})
+target_include_directories(mystorage PUBLIC ${YAML_INCLUDE_DIRS})
+target_compile_options(mystorage PUBLIC ${YAML_CFLAGS_OTHER})

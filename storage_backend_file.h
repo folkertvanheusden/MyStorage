@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <string>
+#include <yaml-cpp/yaml.h>
 
 #include "block.h"
 #include "storage_backend.h"
@@ -22,4 +23,6 @@ public:
 	bool fsync() override;
 
 	bool trim_zero(const offset_t offset, const uint32_t len, const bool trim, int *const err) override;
+
+	YAML::Node emit_configuration() const override;
 };

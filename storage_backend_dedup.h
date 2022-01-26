@@ -2,6 +2,7 @@
 #include <optional>
 #include <stdint.h>
 #include <string>
+#include <yaml-cpp/yaml.h>
 
 #include "block.h"
 #include "hash.h"
@@ -17,6 +18,7 @@ private:
 	const int            block_size { 0 };
 	lock_group           lg;
 	kyotocabinet::PolyDB db;
+	const std::string    file;
 
 	bool get_block(const uint64_t block_nr, uint8_t **const data);
 	bool put_block(const uint64_t block_nr, const uint8_t *const data_in);
@@ -49,4 +51,6 @@ public:
 	bool fsync() override;
 
 	bool trim_zero(const offset_t offset, const uint32_t len, const bool trim, int *const err) override;
+
+	YAML::Node emit_configuration() const override;
 };

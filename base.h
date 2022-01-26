@@ -1,6 +1,7 @@
 #pragma once
 #include <atomic>
 #include <set>
+#include <yaml-cpp/yaml.h>
 
 
 class base
@@ -23,4 +24,6 @@ public:
 	void release(const base *const b);
 
 	void stop();
+
+	virtual YAML::Node emit_configuration() const = 0;
 };

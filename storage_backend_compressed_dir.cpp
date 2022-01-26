@@ -35,6 +35,26 @@ storage_backend_compressed_dir::~storage_backend_compressed_dir()
 	closedir(dir_structure);
 }
 
+YAML::Node storage_backend_compressed_dir::emit_configuration() const
+{
+	std::vector<YAML::Node> out_mirrors;
+	for(auto m : mirrors)
+		out_mirrors.push_back(m->emit_configuration());
+
+	YAML::Node out_cfg;
+	out_cfg["name"] = id;
+	out_cfg["mirrors"] = out_mirrors;
+	out_cfg["directory"] = dir;
+	out_cfg["block-size"] = block_size;
+	out_cfg["total-size"] = total_size;
+
+	YAML::Node out;
+	out["type"] = "storage-backend-compressed-dir";
+	out["cfg"] = out_cfg;
+
+	return out;
+}
+
 offset_t storage_backend_compressed_dir::get_size() const
 {
 	return total_size;

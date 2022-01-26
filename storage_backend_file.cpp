@@ -38,6 +38,23 @@ storage_backend_file::~storage_backend_file()
 	close(fd);
 }
 
+YAML::Node storage_backend_file::emit_configuration() const
+{
+	std::vector<YAML::Node> out_mirrors;
+	for(auto m : mirrors)
+		out_mirrors.push_back(m->emit_configuration());
+
+	YAML::Node out_cfg;
+	out_cfg["name"] = id;
+	out_cfg["mirrors"] = out_mirrors;
+
+	YAML::Node out;
+	out["type"] = "storage-backend-file";
+	out["cfg"] = out_cfg;
+
+	return out;
+}
+
 offset_t storage_backend_file::get_size() const
 {
 	return size;

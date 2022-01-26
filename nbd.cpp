@@ -67,6 +67,23 @@ nbd::~nbd()
 		sb->release(this);
 }
 
+YAML::Node nbd::emit_configuration() const
+{
+	std::vector<YAML::Node> out_storage_backends;
+	for(auto sb : storage_backends)
+		out_storage_backends.push_back(sb->emit_configuration());
+
+	YAML::Node out_cfg;
+	out_cfg["storage-backends"] = out_storage_backends;
+	out_cfg["socket-listener"] = sl->emit_configuration();
+
+	YAML::Node out;
+	out["type"] = "nbd";
+	out["cfg"] = out_cfg;
+
+	return out;
+}
+
 bool nbd::send_option_reply(const int fd, const uint32_t opt, const uint32_t reply_type, const std::vector<uint8_t> & data)
 {
 	std::vector<uint8_t> msg;

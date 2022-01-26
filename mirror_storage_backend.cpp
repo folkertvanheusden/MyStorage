@@ -16,6 +16,19 @@ mirror_storage_backend::~mirror_storage_backend()
 	sb->release(this);
 }
 
+YAML::Node mirror_storage_backend::emit_configuration() const
+{
+	YAML::Node out_cfg;
+	out_cfg["name"] = id;
+	out_cfg["storage-backend"] = sb->emit_configuration();
+
+	YAML::Node out;
+	out["type"] = "mirror-storage-backend";
+	out["cfg"] = out_cfg;
+
+	return out;
+}
+
 offset_t mirror_storage_backend::get_size() const
 {
 	return sb->get_size();

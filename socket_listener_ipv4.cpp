@@ -51,6 +51,19 @@ socket_listener_ipv4::~socket_listener_ipv4()
 {
 }
 
+YAML::Node socket_listener_ipv4::emit_configuration() const
+{
+	YAML::Node out_cfg;
+	out_cfg["listen-addr"] = listen_addr;
+	out_cfg["listen-port"] = listen_port;
+
+	YAML::Node out;
+	out["type"] = "socket-listener-ipv4";
+	out["cfg"] = out_cfg;
+
+	return out;
+}
+
 std::string socket_listener_ipv4::get_listen_address() const
 {
 	return myformat("[%s]:%d", listen_addr.c_str(), listen_port);
