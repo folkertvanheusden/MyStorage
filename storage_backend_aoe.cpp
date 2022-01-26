@@ -287,6 +287,11 @@ void storage_backend_aoe::get_data(const offset_t offset, const uint32_t size, b
 	}
 
 	uint8_t *const buffer = reinterpret_cast<uint8_t *>(malloc(size));
+	if (!buffer) {
+		dolog(ll_error, "storage_backend_aoe::get_data(%s): cannot allocate %zu bytes of memory", id.c_str(), size);
+		*err = ENOMEM;
+		return;
+	}
 
 	offset_t work_offset  = offset;
 	uint32_t work_size    = size;

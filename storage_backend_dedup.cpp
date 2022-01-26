@@ -266,11 +266,15 @@ bool storage_backend_dedup::put_block(const uint64_t block_nr, const uint8_t *co
 	}
 
 	// - calc hash over new-block
-	std::string new_block_hash = h->do_hash(data_in, block_size);
+	auto new_block_hash = h->do_hash(data_in, block_size);
+	if (!new_block_hash.has_value()) {
+		dolog(ll_error, "storage_backend_dedup::put_block(%s): cannot calculate hash", id.c_str());
+		return false;
+	}
 
 	int64_t new_block_use_count = 0;
-	if (get_use_count(new_block_hash, &new_block_use_count) == false) {
-		dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to retrieve use-count for hash \"%s\"", id.c_str(), new_block_hash.c_str());
+	if (get_use_count(new_block_hash.value(), &new_block_use_count) == false) {
+		dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to retrieve use-count for hash \"%s\"", id.c_str(), new_block_hash.value().c_str());
 		return false;
 	}
 
@@ -278,34 +282,34 @@ bool storage_backend_dedup::put_block(const uint64_t block_nr, const uint8_t *co
 	if (new_block_use_count > 0) {
 		// - increase count for new-block-hash
 		int64_t temp = 0;
-		if (increase_use_count(new_block_hash, &temp) == false) {
-			dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to increase use-count for data block with hash \"%s\"", id.c_str(), new_block_hash.c_str());
+		if (increase_use_count(new_block_hash.value(), &temp) == false) {
+			dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to increase use-count for data block with hash \"%s\"", id.c_str(), new_block_hash.value().c_str());
 			return false;
 		}
 
 		if (temp != new_block_use_count + 1) {
-			dolog(ll_error, "storage_backend_dedup::put_block(%s): new count (%ld) not as expected (%ld) hash \"%s\"", id.c_str(), temp, new_block_use_count + 1, new_block_hash.c_str());
+			dolog(ll_error, "storage_backend_dedup::put_block(%s): new count (%ld) not as expected (%ld) hash \"%s\"", id.c_str(), temp, new_block_use_count + 1, new_block_hash.value().c_str());
 			return false;
 		}
 	}
 	else {  // new block
 		// - count == 0:
 		//   - set count to 1
-		if (set_use_count(new_block_hash, 1) == false) {
-			dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to set use-count for data block with hash \"%s\" to 1", id.c_str(), new_block_hash.c_str());
+		if (set_use_count(new_block_hash.value(), 1) == false) {
+			dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to set use-count for data block with hash \"%s\" to 1", id.c_str(), new_block_hash.value().c_str());
 			return false;
 		}
 
 		// - put block
-		if (put_key_value(get_data_key_for_hash(new_block_hash), data_in, block_size) == false) {
-			dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to store data block with hash \"%s\"", id.c_str(), new_block_hash.c_str());
+		if (put_key_value(get_data_key_for_hash(new_block_hash.value()), data_in, block_size) == false) {
+			dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to store data block with hash \"%s\"", id.c_str(), new_block_hash.value().c_str());
 			return false;
 		}
 	}
 
 	// - put mapping blocknr to new-block-hash
-	if (map_blocknr_to_hash(block_nr, new_block_hash) == false) {
-		dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to map blocknr %ld to hash \"%s\"", id.c_str(), block_nr, new_block_hash.c_str());
+	if (map_blocknr_to_hash(block_nr, new_block_hash.value()) == false) {
+		dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to map blocknr %ld to hash \"%s\"", id.c_str(), block_nr, new_block_hash.value().c_str());
 		return false;
 	}
 

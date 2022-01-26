@@ -24,6 +24,10 @@ bool compresser_lzo::compress(const uint8_t *const in, const size_t in_len, uint
 
 	unsigned long temp_len = in_len + 128 /* TODO: what is the maximum overhead for uncompressible data? */ + 4 /* original size storage */;
 	*out = reinterpret_cast<uint8_t *>(malloc(temp_len));
+	if (!*out) {
+		dolog(ll_error, "compresser_lzo::compress: cannot allocate %d bytes of memory", temp_len);
+		return false;
+	}
 
 	(*out)[0] = in_len >> 24;
 	(*out)[1] = in_len >> 16;
@@ -46,17 +50,21 @@ bool compresser_lzo::compress(const uint8_t *const in, const size_t in_len, uint
 bool compresser_lzo::decompress(const uint8_t *const in, const size_t in_len, uint8_t **const out, size_t *const out_len)
 {
 	if (in_len > UINT32_MAX) {
-		dolog(ll_error, "compresser_lzo::compress: input too large (%zu)", in_len);
+		dolog(ll_error, "compresser_lzo::decompress: input too large (%zu)", in_len);
 		return false;
 	}
 
 	*out_len = (in[0] << 24) | (in[1] << 16) | (in[2] << 8) | in[3];
 
 	*out = reinterpret_cast<uint8_t *>(malloc(*out_len));
+	if (!*out) {
+		dolog(ll_error, "compresser_lzo::decompress: cannot allocate %d bytes of memory", *out_len);
+		return false;
+	}
 
 	int rc = lzo1_decompress(&in[4], in_len - 4, *out, out_len, nullptr);
 	if (rc != LZO_E_OK) {
-		dolog(ll_error, "compresser_lzo::compress: lzo1_compress failed (%d)", rc);
+		dolog(ll_error, "compresser_lzo::decompress: lzo1_compress failed (%d)", rc);
 		free(*out);
 		return false;
 	}

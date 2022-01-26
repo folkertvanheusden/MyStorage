@@ -57,6 +57,12 @@ void storage_backend_file::get_data(const offset_t offset, const uint32_t size, 
 	}
 
 	uint8_t *buffer = static_cast<uint8_t *>(malloc(size));
+	if (!buffer) {
+		*err = ENOMEM;
+		dolog(ll_error, "storage_backend_file::get_data(%s): cannot allocated %u bytes of memory", id.c_str(), size);
+		return;
+	}
+
 	if (READ(fd, buffer, size) != size) {
 		*err = errno;
 		free(buffer);

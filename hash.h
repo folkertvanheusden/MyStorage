@@ -1,4 +1,5 @@
 #pragma once
+#include <optional>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string>
@@ -16,5 +17,5 @@ public:
 	virtual void do_hash(const uint8_t *const in, const size_t len, uint8_t **const out) = 0;
 
 	// return hex string
-	std::string do_hash(const uint8_t *const in, const size_t len);
+	std::optional<std::string> do_hash(const uint8_t *const in, const size_t len);
 };

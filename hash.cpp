@@ -1,6 +1,8 @@
+#include <optional>
 #include <stdint.h>
 
 #include "hash.h"
+#include "logging.h"
 
 
 hash::hash()
@@ -11,10 +13,15 @@ hash::~hash()
 {
 }
 
-std::string hash::do_hash(const uint8_t *const in, const size_t len)
+std::optional<std::string> hash::do_hash(const uint8_t *const in, const size_t len)
 {
 	uint8_t *new_hash = nullptr;
 	do_hash(in, len, &new_hash);
+
+	if (!new_hash) {
+		dolog(ll_error, "hash::do_hash: failed hashing");
+		return { };
+	}
 
 	int h_size = get_size();
 

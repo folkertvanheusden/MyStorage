@@ -62,6 +62,12 @@ bool storage_backend_compressed_dir::get_block(const uint64_t block_nr, uint8_t 
 	}
 
 	uint8_t *temp = reinterpret_cast<uint8_t *>(malloc(st.st_size));
+	if (!temp) {
+		dolog(ll_error, "storage_backend_compressed_dir::get_block(%s): cannot allocate %ld bytes or memory: %s", id.c_str(), st.st_size, strerror(errno));
+		close(fd);
+		return false;
+	}
+
 	if (READ(fd, temp, st.st_size) != st.st_size) {
 		dolog(ll_error, "storage_backend_compressed_dir::get_block(%s): short read on \"%s\"", id.c_str(), file.c_str());
 		close(fd);
