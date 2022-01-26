@@ -19,7 +19,7 @@
 
 int main(int argc, char *argv[])
 {
-	setlog("mystorage.log", ll_debug, ll_debug);
+	setlog("mystorage.log", ll_info, ll_info);
 	dolog(ll_info, "MyStorage starting");
 
 //	constexpr uint8_t aoe_client_mac[] = { 0x32, 0x00, 0x11, 0x22, 0x33, 0x44 };

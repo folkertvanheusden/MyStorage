@@ -28,6 +28,8 @@ storage_backend_dedup::storage_backend_dedup(const std::string & id, const std::
 storage_backend_dedup::~storage_backend_dedup()
 {
 	db.close();
+
+	dolog(ll_info, "~storage_backend_dedup: database closed");
 }
 
 offset_t storage_backend_dedup::get_size() const
@@ -129,6 +131,16 @@ bool storage_backend_dedup::set_use_count(const std::string block_hash, const in
 	return true;
 }
 
+bool storage_backend_dedup::delete_block_counter_by_hash(const std::string block_hash)
+{
+	if (db.remove(block_hash) == false) {
+		dolog(ll_error, "storage_backend_dedup::delete_block_counter_by_hash(%s): failed to delete counter by hash \"%s\": %s", id.c_str(), block_hash.c_str(), db.error().message());
+		return false;
+	}
+
+	return true;
+}
+
 bool storage_backend_dedup::delete_block_by_hash(const std::string block_hash)
 {
 	if (db.remove(block_hash) == false) {
@@ -220,7 +232,7 @@ bool storage_backend_dedup::put_block(const uint64_t block_nr, const uint8_t *co
 	// get hash for block (get_hash_for_block())
 	auto cur_hash_for_blocknr = get_hash_for_block(block_nr);
 	if (cur_hash_for_blocknr.has_value() == false) {
-		dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to hash for blocknr %ld", id.c_str(), block_nr);
+		dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to get hash for blocknr %ld", id.c_str(), block_nr);
 		return false;
 	}
 
@@ -235,9 +247,15 @@ bool storage_backend_dedup::put_block(const uint64_t block_nr, const uint8_t *co
 
 		// - if use count is 0:
 		if (new_use_count == 0) {
-		// - delete block for that hash
+			// - delete block for that hash
 			if (delete_block_by_hash(cur_hash_for_blocknr.value()) == false) {
 				dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to delete block for hash \"%s\"", id.c_str(), cur_hash_for_blocknr.value().c_str());
+				return false;
+			}
+
+			// delete counter
+			if (delete_block_counter_by_hash(get_hashforblocknr_key_for_blocknr(block_nr)) == false) {
+				dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to delete counter for hash \"%s\"", id.c_str(), cur_hash_for_blocknr.value().c_str());
 				return false;
 			}
 		}

@@ -35,6 +35,7 @@ private:
 	bool increase_use_count(const std::string block_hash, int64_t *const new_count);
 	bool decrease_use_count(const std::string block_hash, int64_t *const new_count);
 	bool delete_block_by_hash(const std::string block_hash);
+	bool delete_block_counter_by_hash(const std::string block_hash);
 	bool map_blocknr_to_hash(const uint64_t block_nr, const std::string & new_block_hash);
 
 public:
