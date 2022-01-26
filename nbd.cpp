@@ -49,6 +49,12 @@ nbd::nbd(socket_listener *const sl, const std::vector<storage_backend *> & stora
 
 nbd::~nbd()
 {
+	stop();
+
+	for(auto t : threads) {
+		t->join();
+		delete t;
+	}
 }
 
 bool nbd::send_option_reply(const int fd, const uint32_t opt, const uint32_t reply_type, const std::vector<uint8_t> & data)
@@ -123,7 +129,7 @@ void nbd::handle_client(const int fd)
 	size_t current_sb = 0;
 	bool use_0x00_padding = true;
 
-	for(;state != nbd_st_terminate;) {
+	for(;state != nbd_st_terminate && !stop_flag;) {
 		dolog(ll_debug, "nbd::handle_client: state: \"%s\" (%d)", nbd_st_strings[state], state);
 
 		if (state == nbd_st_init) {
@@ -132,7 +138,7 @@ void nbd::handle_client(const int fd)
 			add_uint64(msg, 0x49484156454F5054);  // 'IHAVEOPT'
 			add_uint16(msg, 0x0000);              // handshake flags;
 			if (WRITE(fd, msg.data(), msg.size()) != ssize_t(msg.size())) {
-				dolog(ll_info, "nbd::handle_client: transmission fail");
+				dolog(ll_info, "nbd::handle_client: transmission failed");
 				break;
 			}
 
@@ -397,10 +403,26 @@ void nbd::handle_client(const int fd)
 
 void nbd::operator()()
 {
-	for(;;) {
-		int cfd = sl->wait_for_client();
+	for(;!stop_flag;) {
+		int cfd = sl->wait_for_client(&stop_flag);
+
+		if (cfd == -1) {
+			dolog(ll_info, "nbd::operator: failed accepting connection");
+			continue;
+		}
 
 		std::thread *th = new std::thread([this, cfd] { this->handle_client(cfd); });
-		th->detach();
+		threads.push_back(th);
+
+		for(size_t i=0; i<threads.size();) {
+			if (threads.at(i)->joinable()) {
+				threads.at(i)->join();
+				delete threads.at(i);
+				threads.erase(threads.begin() + i);
+			}
+			else {
+				i++;
+			}
+		}
 	}
 }

@@ -1,9 +1,10 @@
 #include <thread>
 
+#include "base.h"
 #include "storage_backend.h"
 
 
-class aoe
+class aoe : public base
 {
 private:
 	storage_backend *const sb;

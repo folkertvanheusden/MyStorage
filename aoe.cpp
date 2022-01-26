@@ -1,4 +1,6 @@
+#include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <string.h>
 #include <thread>
 #include <unistd.h>
@@ -31,6 +33,10 @@ aoe::aoe(const std::string & dev_name, storage_backend *const storage_backend, c
 
 aoe::~aoe()
 {
+	stop();
+
+	th->join();
+	delete th;
 }
 
 bool aoe::announce()
@@ -77,16 +83,29 @@ bool aoe::announce()
 
 void aoe::operator()()
 {
-	std::thread announcer([this] {
-				for(;;) {
-					sleep(2);
+	std::atomic_bool local_stop_flag { false };
 
+	std::thread announcer([this, &local_stop_flag] {
+				for(;!local_stop_flag;) {
 					announce();
+
+					for(int i=0; i<5 && !local_stop_flag; i++)
+						sleep(1);
 				}
 			});
-	announcer.detach();
 
-	for(;;) {
+	struct pollfd fds[] = { { fd, POLLIN, 0 } };
+
+	for(;!stop_flag;) {
+		int rc = poll(fds, 1, 250);
+		if (rc == 0)
+		       	continue;
+
+		if (rc == -1) {
+			dolog(ll_error, "aoe::operator(%s): poll call failed: %s", id.c_str(), strerror(errno));
+			break;
+		}
+
 		// enough for jumbo frames
 		uint8_t frame[65536];
 
@@ -291,6 +310,9 @@ void aoe::operator()()
 			}
 		}
 	}
+
+	local_stop_flag = true;
+	announcer.join();
 
 	dolog(ll_error, "aoe::operator(%s): thread terminates", id.c_str());
 }

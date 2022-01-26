@@ -1,3 +1,5 @@
+#include <atomic>
+#include <signal.h>
 #include <stdio.h>
 #include <vector>
 
@@ -16,11 +18,20 @@
 #include "storage_backend_dedup.h"
 #include "storage_backend_file.h"
 
+std::atomic_bool stop_flag { false };
+
+void sigh(int sig)
+{
+	stop_flag = true;
+}
 
 int main(int argc, char *argv[])
 {
 	setlog("mystorage.log", ll_info, ll_info);
 	dolog(ll_info, "MyStorage starting");
+
+	signal(SIGTERM, sigh);
+	signal(SIGINT, sigh);
 
 //	constexpr uint8_t aoe_client_mac[] = { 0x32, 0x00, 0x11, 0x22, 0x33, 0x44 };
 //	storage_backend_aoe *sb_aoe = new storage_backend_aoe("aoe", { }, "c_aoe", aoe_client_mac, 66, 6, 0);
@@ -63,7 +74,9 @@ int main(int argc, char *argv[])
 	constexpr uint8_t my_mac[] = { 0x32, 0x11, 0x22, 0x33, 0x44, 0x55 };
 	aoe *aoe_ = new aoe("ata", sb4, my_mac, 0);
 
-	getchar();
+	for(;!stop_flag;)
+		pause();
+
 	dolog(ll_info, "MyStorage terminating");
 
 //	delete sb_aoe;

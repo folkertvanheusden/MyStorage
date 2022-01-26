@@ -1,4 +1,6 @@
+#include <atomic>
 #include <errno.h>
+#include <poll.h>
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
@@ -49,18 +51,29 @@ socket_listener_ipv4::~socket_listener_ipv4()
 	close(fd);
 }
 
-int socket_listener_ipv4::wait_for_client()
+int socket_listener_ipv4::wait_for_client(std::atomic_bool *const stop_flag)
 {
 	int cfd = -1;
 
-	for(;;) {
+	struct pollfd fds[] = { { 1, POLLIN, 0 } };
+
+	for(;!*stop_flag;) {
+		int rc = poll(fds, 1, 250);
+		if (rc == 0)
+			continue;
+
+		if (rc == -1) {
+			dolog(ll_error, "socket_listener_ipv4::wait_for_client: failed to invoke poll on fd %d", cfd);
+			break;
+		}
+
 		cfd = accept(fd, nullptr, nullptr);
 		if (cfd != -1) {
 			dolog(ll_info, "socket_listener_ipv4: connected to \"%s\" on fd %d", get_endpoint_name(cfd).c_str(), cfd);
 
 			int nodelay = 1;
 			if (setsockopt(cfd, IPPROTO_TCP, TCP_NODELAY, (char *)&nodelay, sizeof(int)) == -1) {
-				dolog(ll_info, "socket_listener_ipv4: failed to disable Naggle on fd %d", cfd);
+				dolog(ll_error, "socket_listener_ipv4::wait_for_client: failed to disable Naggle on fd %d", cfd);
 				close(cfd);
 				continue;
 			}
@@ -68,7 +81,7 @@ int socket_listener_ipv4::wait_for_client()
 			break;
 		}
 
-		dolog(ll_error, "socket_listener_ipv4: failed to accept connection (%s)", strerror(errno));
+		dolog(ll_error, "socket_listener_ipv4::wait_for_client: failed to accept connection (%s)", strerror(errno));
 	}
 
 	return cfd;
