@@ -39,6 +39,7 @@ add_executable(mystorage
 	storage_backend_aoe.cpp
 	storage_backend_compressed_dir.cpp
 	storage_backend_file.cpp
+	storage_backend_dedup.cpp
 	str.cpp
 	time.cpp
 	)
@@ -64,3 +65,8 @@ pkg_check_modules(CRYPTOPP REQUIRED libcrypto++)
 target_link_libraries(mystorage ${CRYPTOPP_LIBRARIES})
 target_include_directories(mystorage PUBLIC ${CRYPTOPP_INCLUDE_DIRS})
 target_compile_options(mystorage PUBLIC ${CRYPTOPP_CFLAGS_OTHER})
+
+pkg_check_modules(KC REQUIRED kyotocabinet)
+target_link_libraries(mystorage ${KC_LIBRARIES})
+target_include_directories(mystorage PUBLIC ${KC_INCLUDE_DIRS})
+target_compile_options(mystorage PUBLIC ${KC_CFLAGS_OTHER})
