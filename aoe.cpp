@@ -1,6 +1,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <thread>
+#include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
