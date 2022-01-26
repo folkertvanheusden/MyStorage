@@ -5,6 +5,7 @@
 
 socket_client::socket_client()
 {
+	fd = -1;
 }
 
 socket_client::~socket_client()
