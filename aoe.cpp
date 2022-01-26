@@ -17,10 +17,8 @@
 #include "str.h"
 
 
-aoe::aoe(const std::string & dev_name, storage_backend *const storage_backend, const uint8_t my_mac[6], const int mtu_size_in) : sb(storage_backend)
+aoe::aoe(const std::string & dev_name, storage_backend *const storage_backend, const uint8_t my_mac[6], const int mtu_size_in, const uint16_t major, const uint8_t minor) : base(myformat("%d.%d", major, minor)), sb(storage_backend), major(major), minor(minor)
 {
-	id = myformat("%d.%d", major, minor);
-
 	mtu_size = mtu_size_in > 0 ? mtu_size_in : 0;
 
 	if (open_tun(dev_name, &fd, &mtu_size) == false)
