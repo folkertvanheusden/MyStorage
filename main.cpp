@@ -49,12 +49,11 @@ int main(int argc, char *argv[])
 	storage_backend *m2 = new storage_backend_file("mirror2", "/home/folkert/temp/mirror-dir-mystorage.dat", { });
 	mirror_storage_backend *sm2 = new mirror_storage_backend("mirror2-sb", m2);
 
-	compresser *c = new compresser_zlib(3);
 	std::vector<mirror *> mirrors2;
 	mirrors2.push_back(sm2);
-	storage_backend *sb2 = new storage_backend_compressed_dir("dir1", "/home/folkert/temp/dir", 131072, 17179869184, c, mirrors2);
+	storage_backend *sb2 = new storage_backend_compressed_dir("dir1", "/home/folkert/temp/dir", 131072, 17179869184, new compresser_zlib(3), mirrors2);
 
-	storage_backend *sb3 = new storage_backend_compressed_dir("dir2", "/home/folkert/temp/ramdisk", 131072, 4294967296, c, { });
+	storage_backend *sb3 = new storage_backend_compressed_dir("dir2", "/home/folkert/temp/ramdisk", 131072, 4294967296, new compresser_zlib(3), { });
 
 	storage_backend *sb4 = new storage_backend_file("file2", "/home/folkert/temp/ramdisk/test.dat", { });
 
@@ -66,14 +65,16 @@ int main(int argc, char *argv[])
 //	constexpr uint8_t aoe_client_mac2[] = { 0x32, 0x00, 0x11, 0x22, 0x33, 0x55 };
 //	storage_backend_aoe *sb6 = new storage_backend_aoe("aoe2", { }, "c_aoe2", aoe_client_mac2, 66, 6, 0);
 
-	storage_backend_dedup sbd("sbd", "/home/folkert/temp/dedup.kch", new hash_sha384(), { }, 4ll * 1024ll * 1024ll * 1024ll, 65536);
+	storage_backend_dedup *sbd = new storage_backend_dedup("sbd", "/home/folkert/temp/dedup.kch", new hash_sha384(), { }, 4ll * 1024ll * 1024ll * 1024ll, 65536);
 
-	std::vector<storage_backend *> storage_backends { sb1, sb2, sb3, sb4, /*sb5, sb6,*/ &sbd };
+	std::vector<storage_backend *> storage_backends { sb1, sb2, sb3, sb4, /*sb5, sb6,*/ sbd };
 
 	nbd *nbd_ = new nbd(sl, storage_backends);
 
 	constexpr uint8_t my_mac[] = { 0x32, 0x11, 0x22, 0x33, 0x44, 0x55 };
 	aoe *aoe_ = new aoe("ata", sb4, my_mac, 0, 11, 1);
+
+	dolog(ll_info, "MyStorage running");
 
 	for(;!stop_flag;)
 		pause();
@@ -97,18 +98,15 @@ int main(int argc, char *argv[])
 
 	dolog(ll_info, "MyStorage terminating");
 
-//	delete sb_aoe;
 	delete aoe_;
 	delete nbd_;
-	delete sb2;
-	delete c;
-	delete sb1;
-	delete sl;
 
 	fflush(nullptr);
 	sync();
 
 	dolog(ll_info, "MyStorage stopped");
+
+	closelog();
 
 	return 0;
 }

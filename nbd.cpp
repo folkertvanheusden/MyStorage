@@ -61,10 +61,19 @@ nbd::~nbd()
 		delete t;
 	}
 
+	th->join();
+	delete th;
+
 	sl->release(this);
 
-	for(auto sb : storage_backends)
+	for(auto sb : storage_backends) {
 		sb->release(this);
+
+		if (sb->obj_in_use_by().empty())
+			delete sb;
+	}
+
+	delete sl;
 }
 
 YAML::Node nbd::emit_configuration() const

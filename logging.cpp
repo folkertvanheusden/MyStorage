@@ -23,7 +23,7 @@ void setlog(const char *lf, const log_level_t ll_file, const log_level_t ll_scre
 	if (lfh)
 		fclose(lfh);
 
-	free((void *)logfile);
+	free(const_cast<char *>(logfile));
 
 	logfile = strdup(lf);
 
@@ -41,6 +41,8 @@ void closelog()
 {
 	fclose(lfh);
 	lfh = nullptr;
+
+	free(const_cast<char *>(logfile));
 }
 
 void DOLOG(const log_level_t ll, const char *fmt, ...)

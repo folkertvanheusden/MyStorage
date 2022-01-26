@@ -10,8 +10,12 @@ storage_backend::storage_backend(const std::string & id, const std::vector<mirro
 
 storage_backend::~storage_backend()
 {
-	for(auto m : mirrors)
+	for(auto m : mirrors) {
 		m->release(this);
+
+		if (m->obj_in_use_by().empty())
+			delete m;
+	}
 }
 
 bool storage_backend::verify_mirror_sizes()

@@ -14,6 +14,9 @@ mirror_storage_backend::mirror_storage_backend(const std::string & id, storage_b
 mirror_storage_backend::~mirror_storage_backend()
 {
 	sb->release(this);
+
+	if (sb->obj_in_use_by().empty())
+		delete sb;
 }
 
 YAML::Node mirror_storage_backend::emit_configuration() const

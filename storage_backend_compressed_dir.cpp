@@ -33,6 +33,8 @@ storage_backend_compressed_dir::~storage_backend_compressed_dir()
 	close(dir_fd);
 
 	closedir(dir_structure);
+
+	delete c;
 }
 
 YAML::Node storage_backend_compressed_dir::emit_configuration() const

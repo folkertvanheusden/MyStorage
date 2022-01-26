@@ -42,6 +42,9 @@ aoe::~aoe()
 	delete th;
 
 	sb->release(this);
+
+	if (sb->obj_in_use_by().empty())
+		delete sb;
 }
 
 YAML::Node aoe::emit_configuration() const

@@ -30,6 +30,8 @@ storage_backend_dedup::~storage_backend_dedup()
 {
 	db.close();
 
+	delete h;
+
 	dolog(ll_info, "~storage_backend_dedup: database closed");
 }
 
