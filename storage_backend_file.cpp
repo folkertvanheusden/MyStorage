@@ -12,7 +12,7 @@
 #include "str.h"
 
 
-storage_backend_file::storage_backend_file(const std::string & id, const std::string & file, const std::vector<mirror *> & mirrors) : storage_backend(id, mirrors)
+storage_backend_file::storage_backend_file(const std::string & id, const std::string & file, const std::vector<mirror *> & mirrors) : storage_backend(id, mirrors), file(file)
 {
 	fd = open(file.c_str(), O_RDWR);
 	if (fd == -1)
@@ -46,6 +46,7 @@ YAML::Node storage_backend_file::emit_configuration() const
 
 	YAML::Node out_cfg;
 	out_cfg["name"] = id;
+	out_cfg["file"] = file;
 	out_cfg["mirrors"] = out_mirrors;
 
 	YAML::Node out;

@@ -9,8 +9,9 @@
 class storage_backend_file : public storage_backend
 {
 private:
-	int      fd { -1 };
-	offset_t size { 0 };
+	int               fd { -1 };
+	offset_t          size { 0 };
+	const std::string file;
 
 public:
 	storage_backend_file(const std::string & id, const std::string & file, const std::vector<mirror *> & mirrors);
