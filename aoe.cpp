@@ -25,6 +25,7 @@ aoe::aoe(const std::string & dev_name, storage_backend *const storage_backend, c
 		throw myformat("aoe(%s): failed creating network device \"%s\"", id.c_str(), dev_name.c_str());
 
 	memcpy(this->my_mac, my_mac, 6);
+	dolog(ll_debug, "aoe(%s): MAC address: %02x:%02x:%02x:%02x:%02x:%02x", id.c_str(), my_mac[0], my_mac[1], my_mac[2], my_mac[3], my_mac[4], my_mac[5]);
 
 	storage_backend->acquire(this);
 

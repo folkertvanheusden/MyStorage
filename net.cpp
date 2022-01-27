@@ -124,7 +124,7 @@ bool str_to_mac(const std::string & in, uint8_t *const out)
 
 		v <<= 4;
 
-		char c2 = parts.at(i).at(0);
+		char c2 = parts.at(i).at(1);
 		if (c2 >= 'a' && c2 <= 'f')
 			v += c2 - 'a' + 10;
 		else if (c2 >= 0 && c2 <= '9')
