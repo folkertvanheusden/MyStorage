@@ -47,7 +47,7 @@ bool open_tun(const std::string & dev_name, int *const fd, int *const mtu_size)
 	if (ioctl(temp_fd, SIOCGIFFLAGS, &ifr_tap) == -1)
 		error_exit(true, myformat("aoe(%s): ioctl SIOCGIFFLAGS failed", dev_name.c_str()).c_str());
 
-	ifr_tap.ifr_flags = IFF_UP | IFF_RUNNING;
+	ifr_tap.ifr_flags = IFF_UP | IFF_RUNNING | IFF_MULTICAST | IFF_BROADCAST;
 
 	if (ioctl(temp_fd, SIOCSIFFLAGS, &ifr_tap) == -1)
 		error_exit(true, myformat("aoe(%s): ioctl SIOCSIFFLAGS failed", dev_name.c_str()).c_str());
