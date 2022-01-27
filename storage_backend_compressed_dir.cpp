@@ -176,32 +176,11 @@ bool storage_backend_compressed_dir::put_block(const block_nr_t block_nr, const 
 	return true;
 }
 
-void storage_backend_compressed_dir::un_lock_block_group(const offset_t offset, const uint32_t size, const bool do_lock, const bool shared)
-{
-	std::vector<block_nr_t> block_nrs;
-
-	for(offset_t o=offset; o<offset + size; o += block_size)
-		block_nrs.push_back(o);
-
-	if (do_lock) {
-		if (shared)
-			lg.lock_shared(block_nrs);
-		else
-			lg.lock_private(block_nrs);
-	}
-	else {
-		if (shared)
-			lg.unlock_shared(block_nrs);
-		else
-			lg.unlock_private(block_nrs);
-	}
-}
-
 void storage_backend_compressed_dir::get_data(const offset_t offset, const uint32_t size, block **const b, int *const err)
 {
 	*err = 0;
 
-	un_lock_block_group(offset, size, true, true);
+	lg.un_lock_block_group(offset, size, block_size, true, true);
 
 	uint8_t *out = nullptr;
 	uint32_t out_size = 0;
@@ -236,14 +215,14 @@ void storage_backend_compressed_dir::get_data(const offset_t offset, const uint3
 
 	*b = new block(out, out_size);
 
-	un_lock_block_group(offset, size, false, true);
+	lg.un_lock_block_group(offset, size, block_size, false, true);
 }
 
 void storage_backend_compressed_dir::put_data(const offset_t offset, const block & b, int *const err)
 {
 	*err = 0;
 
-	un_lock_block_group(offset, b.get_size(), true, false);
+	lg.un_lock_block_group(offset, b.get_size(), block_size, true, false);
 
 	offset_t work_offset = offset;
 
@@ -284,7 +263,7 @@ void storage_backend_compressed_dir::put_data(const offset_t offset, const block
 		input += current_size;
 	}
 
-	un_lock_block_group(offset, b.get_size(), false, false);
+	lg.un_lock_block_group(offset, b.get_size(), block_size, false, false);
 
 	if (do_mirror(offset, b) == false) {
 		*err = EIO;
@@ -311,7 +290,7 @@ bool storage_backend_compressed_dir::trim_zero(const offset_t offset, const uint
 {
 	*err = 0;
 
-	un_lock_block_group(offset, len, true, false);
+	lg.un_lock_block_group(offset, len, block_size, true, false);
 
 	offset_t work_offset = offset;
 	size_t work_size = len;
@@ -359,7 +338,7 @@ bool storage_backend_compressed_dir::trim_zero(const offset_t offset, const uint
 		work_size -= current_size;
 	}
 
-	un_lock_block_group(offset, len, false, false);
+	lg.un_lock_block_group(offset, len, block_size, false, false);
 
 	if (do_trim_zero(offset, len, trim) == false) {
 		dolog(ll_error, "storage_backend_compressed_dir::trim_zero(%s): failed to send to mirror(s)", id.c_str());

@@ -24,8 +24,6 @@ private:
 	bool get_block(const block_nr_t block_nr, uint8_t **const data);
 	bool put_block(const block_nr_t block_nr, const uint8_t *const data);
 
-	void un_lock_block_group(const offset_t offset, const uint32_t size, const bool do_lock, const bool shared);
-
 public:
 	storage_backend_compressed_dir(const std::string & id, const std::string & dir, const int block_size, const offset_t total_size, compresser *const c, const std::vector<mirror *> & mirrors);
 	virtual ~storage_backend_compressed_dir();
