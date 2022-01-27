@@ -90,7 +90,7 @@ std::string storage_backend_dedup::get_usecount_key_for_hash(const std::string &
 }
 
 // key for block_nr -> hash
-std::string storage_backend_dedup::get_hashforblocknr_key_for_blocknr(const uint64_t block_nr)
+std::string storage_backend_dedup::get_hashforblocknr_key_for_blocknr(const block_nr_t block_nr)
 {
 	return myformat("block-to-hash_%lu", block_nr);
 }
@@ -215,7 +215,7 @@ bool storage_backend_dedup::increase_use_count(const std::string block_hash, int
 	return true;
 }
 
-std::optional<std::string> storage_backend_dedup::get_hash_for_block(const uint64_t block_nr)
+std::optional<std::string> storage_backend_dedup::get_hash_for_block(const block_nr_t block_nr)
 {
 	// block-to-hash key
 	std::string bth_key = get_hashforblocknr_key_for_blocknr(block_nr);
@@ -239,7 +239,7 @@ std::optional<std::string> storage_backend_dedup::get_hash_for_block(const uint6
 	return std::string(reinterpret_cast<const char *>(block_hash), bh_size);
 }
 
-bool storage_backend_dedup::get_block(const uint64_t block_nr, uint8_t **const data)
+bool storage_backend_dedup::get_block(const block_nr_t block_nr, uint8_t **const data)
 {
 	// hash for block
 	auto hfb = get_hash_for_block(block_nr);
@@ -268,12 +268,12 @@ bool storage_backend_dedup::get_block(const uint64_t block_nr, uint8_t **const d
 	return true;
 }
 
-bool storage_backend_dedup::map_blocknr_to_hash(const uint64_t block_nr, const std::string & new_block_hash)
+bool storage_backend_dedup::map_blocknr_to_hash(const block_nr_t block_nr, const std::string & new_block_hash)
 {
 	return put_key_value(get_hashforblocknr_key_for_blocknr(block_nr), reinterpret_cast<const uint8_t *>(new_block_hash.c_str()), new_block_hash.size());
 }
 
-bool storage_backend_dedup::put_block(const uint64_t block_nr, const uint8_t *const data_in)
+bool storage_backend_dedup::put_block(const block_nr_t block_nr, const uint8_t *const data_in)
 {
 	// get hash for block (get_hash_for_block())
 	auto cur_hash_for_blocknr = get_hash_for_block(block_nr);
@@ -397,7 +397,7 @@ void storage_backend_dedup::get_data(const offset_t offset, const uint32_t size,
 	uint32_t work_size = size;
 
 	while(work_size > 0) {
-		uint64_t block_nr = work_offset / block_size;
+		block_nr_t block_nr = work_offset / block_size;
 		uint32_t block_offset = work_offset % block_size;
 
 		uint32_t current_size = std::min(work_size, block_size - block_offset);
@@ -440,7 +440,7 @@ void storage_backend_dedup::put_data(const offset_t offset, const block & b, int
 	size_t work_size = b.get_size();
 
 	while(work_size > 0) {
-		uint64_t block_nr = work_offset / block_size;
+		block_nr_t block_nr = work_offset / block_size;
 		uint32_t block_offset = work_offset % block_size;
 
 		int current_size = std::min(work_size, size_t(block_size - block_offset));
@@ -506,7 +506,7 @@ bool storage_backend_dedup::trim_zero(const offset_t offset, const uint32_t len,
 	size_t work_size = len;
 
 	while(work_size > 0) {
-		uint64_t block_nr = work_offset / block_size;
+		block_nr_t block_nr = work_offset / block_size;
 		uint32_t block_offset = work_offset % block_size;
 
 		int current_size = std::min(work_size, size_t(block_size - block_offset));

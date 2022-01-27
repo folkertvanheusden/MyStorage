@@ -21,8 +21,8 @@ private:
 	DIR                    *dir_structure { nullptr };
 	int                     dir_fd { -1 };
 
-	bool get_block(const uint64_t block_nr, uint8_t **const data);
-	bool put_block(const uint64_t block_nr, const uint8_t *const data);
+	bool get_block(const block_nr_t block_nr, uint8_t **const data);
+	bool put_block(const block_nr_t block_nr, const uint8_t *const data);
 
 	void un_lock_block_group(const offset_t offset, const uint32_t size, const bool do_lock, const bool shared);
 

@@ -83,7 +83,7 @@ offset_t storage_backend_compressed_dir::get_size() const
 	return total_size;
 }
 
-bool storage_backend_compressed_dir::get_block(const uint64_t block_nr, uint8_t **const data)
+bool storage_backend_compressed_dir::get_block(const block_nr_t block_nr, uint8_t **const data)
 {
 	std::string file = myformat("%s/%ld", dir.c_str(), block_nr);
 
@@ -141,7 +141,7 @@ bool storage_backend_compressed_dir::get_block(const uint64_t block_nr, uint8_t 
 	return true;
 }
 
-bool storage_backend_compressed_dir::put_block(const uint64_t block_nr, const uint8_t *const data_in)
+bool storage_backend_compressed_dir::put_block(const block_nr_t block_nr, const uint8_t *const data_in)
 {
 	uint8_t *data_out = nullptr;
 	size_t out_len = 0;
@@ -178,7 +178,7 @@ bool storage_backend_compressed_dir::put_block(const uint64_t block_nr, const ui
 
 void storage_backend_compressed_dir::un_lock_block_group(const offset_t offset, const uint32_t size, const bool do_lock, const bool shared)
 {
-	std::vector<uint64_t> block_nrs;
+	std::vector<block_nr_t> block_nrs;
 
 	for(offset_t o=offset; o<offset + size; o += block_size)
 		block_nrs.push_back(o);
@@ -210,7 +210,7 @@ void storage_backend_compressed_dir::get_data(const offset_t offset, const uint3
 	uint32_t work_size = size;
 
 	while(work_size > 0) {
-		uint64_t block_nr = work_offset / block_size;
+		block_nr_t block_nr = work_offset / block_size;
 		uint32_t block_offset = work_offset % block_size;
 
 		uint32_t current_size = std::min(work_size, block_size - block_offset);
@@ -251,7 +251,7 @@ void storage_backend_compressed_dir::put_data(const offset_t offset, const block
 	size_t work_size = b.get_size();
 
 	while(work_size > 0) {
-		uint64_t block_nr = work_offset / block_size;
+		block_nr_t block_nr = work_offset / block_size;
 		uint32_t block_offset = work_offset % block_size;
 
 		int current_size = std::min(work_size, size_t(block_size - block_offset));
@@ -317,7 +317,7 @@ bool storage_backend_compressed_dir::trim_zero(const offset_t offset, const uint
 	size_t work_size = len;
 
 	while(work_size > 0) {
-		uint64_t block_nr = work_offset / block_size;
+		block_nr_t block_nr = work_offset / block_size;
 		uint32_t block_offset = work_offset % block_size;
 
 		int current_size = std::min(work_size, size_t(block_size - block_offset));
