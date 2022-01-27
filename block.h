@@ -16,6 +16,8 @@ public:
 	block(const std::vector<uint8_t> & data);
 	virtual ~block();
 
+	bool empty() const;
+
 	size_t get_size() const;
 
 	const uint8_t * get_data() const;

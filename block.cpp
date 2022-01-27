@@ -24,6 +24,11 @@ block::~block()
 	free(const_cast<uint8_t *>(data));
 }
 
+bool block::empty() const
+{
+	return len == 0;
+}
+
 size_t block::get_size() const
 {
 	return len;
