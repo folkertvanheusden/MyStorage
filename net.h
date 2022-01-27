@@ -15,3 +15,5 @@ std::optional<uint64_t> receive_uint64(const int fd);
 std::optional<uint32_t> receive_uint32(const int fd);
 std::optional<uint16_t> receive_uint16(const int fd);
 std::optional<std::vector<uint8_t> > receive_n_uint8(const int fd, const size_t n);
+
+bool str_to_mac(const std::string & in, uint8_t *const out);

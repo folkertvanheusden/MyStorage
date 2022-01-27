@@ -95,3 +95,47 @@ std::optional<std::vector<uint8_t> > receive_n_uint8(const int fd, const size_t 
 	return out;
 }
 
+bool str_to_mac(const std::string & in, uint8_t *const out)
+{
+	auto parts = split(str_tolower(in), ":");
+
+	if (parts.size() != 6) {
+		dolog(ll_error, "str_to_mac: \"%s\" does not contain 6 hex values seperated by ':'", in.c_str());
+		return false;
+	}
+
+	for(size_t i=0; i<parts.size(); i++) {
+		if (parts.at(i).size() != 2) {
+			dolog(ll_error, "str_to_mac: \"%s\" (from \"%s\") is not 2 digits in length", parts.at(i).c_str(), in.c_str());
+			return false;
+		}
+
+		int v = 0;
+
+		char c1 = parts.at(i).at(0);
+		if (c1 >= 'a' && c1 <= 'f')
+			v += c1 - 'a' + 10;
+		else if (c1 >= 0 && c1 <= '9')
+			v += c1 - '0';
+		else {
+			dolog(ll_error, "str_to_mac: \"%s\" (from \"%s\") is not valid hex", parts.at(i).c_str(), in.c_str());
+			return false;
+		}
+
+		v <<= 4;
+
+		char c2 = parts.at(i).at(0);
+		if (c2 >= 'a' && c2 <= 'f')
+			v += c2 - 'a' + 10;
+		else if (c2 >= 0 && c2 <= '9')
+			v += c2 - '0';
+		else {
+			dolog(ll_error, "str_to_mac: \"%s\" (from \"%s\") is not valid hex", parts.at(i).c_str(), in.c_str());
+			return false;
+		}
+
+		out[i] = v;
+	}
+
+	return true;
+}
