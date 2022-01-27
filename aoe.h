@@ -18,7 +18,6 @@ private:
 	const int              major { 0x0001 };
 	const int              minor { 0x11 };
 	const int              firmware_version { 0x4001 };
-	std::string            id;
 
 	bool announce();
 

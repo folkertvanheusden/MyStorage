@@ -17,7 +17,7 @@
 #include "str.h"
 
 
-aoe::aoe(const std::string & dev_name, storage_backend *const storage_backend, const uint8_t my_mac[6], const int mtu_size_in, const uint16_t major, const uint8_t minor) : base(myformat("%d.%d", major, minor)), dev_name(dev_name), sb(storage_backend), major(major), minor(minor)
+aoe::aoe(const std::string & dev_name, storage_backend *const storage_backend, const uint8_t my_mac[6], const int mtu_size_in, const uint16_t major, const uint8_t minor) : base(myformat("%d.%d/%s", major, minor, dev_name.c_str())), dev_name(dev_name), sb(storage_backend), major(major), minor(minor)
 {
 	mtu_size = mtu_size_in > 0 ? mtu_size_in : 0;
 
@@ -29,6 +29,8 @@ aoe::aoe(const std::string & dev_name, storage_backend *const storage_backend, c
 	storage_backend->acquire(this);
 
 	th = new std::thread(std::ref(*this));
+
+	dolog(ll_info, "aoe(%s): started", id.c_str());
 }
 
 aoe::~aoe()
@@ -80,8 +82,8 @@ aoe * aoe::load_configuration(const YAML::Node & node)
 
 	std::string dev_name = cfg["dev-name"].as<std::string>();
 	int mtu_size = cfg["mtu-size"].as<int>();
-	uint16_t major = cfg["major"].as<uint16_t>();
-	uint8_t minor = cfg["minor"].as<uint8_t>();
+	uint16_t major = cfg["major"].as<int>();
+	uint8_t minor = cfg["minor"].as<int>();
 
 	return new aoe(dev_name, sb, my_mac, mtu_size, major, minor);
 }
@@ -240,7 +242,7 @@ void aoe::operator()()
 			}
 
 			if (respond) {
-				dolog(ll_debug, "aoe::operator(%s): send response to %d (%zu bytes)", id.c_str(), sub_command, out.size());
+				dolog(ll_debug, "aoe::operator(%s): send response to sub-command %d (%zu bytes)", id.c_str(), sub_command, out.size());
 
 				if (write(fd, out.data(), out.size()) != ssize_t(out.size())) {
 					dolog(ll_error, "aoe::operator(%s): failed to tansmit Ethernet frame: %s (Info)", id.c_str(), strerror(errno));
