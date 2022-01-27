@@ -22,7 +22,7 @@ mirror_storage_backend::~mirror_storage_backend()
 YAML::Node mirror_storage_backend::emit_configuration() const
 {
 	YAML::Node out_cfg;
-	out_cfg["name"] = id;
+	out_cfg["id"] = id;
 	out_cfg["storage-backend"] = sb->emit_configuration();
 
 	YAML::Node out;
@@ -30,6 +30,17 @@ YAML::Node mirror_storage_backend::emit_configuration() const
 	out["cfg"] = out_cfg;
 
 	return out;
+}
+
+mirror_storage_backend * mirror_storage_backend::load_configuration(const YAML::Node & node)
+{
+	const YAML::Node cfg = node["cfg"];
+
+	std::string id = cfg["id"].as<std::string>();
+
+	storage_backend *sb = storage_backend::load_configuration(cfg["storage-backend"]);
+
+	return new mirror_storage_backend(id, sb);
 }
 
 offset_t mirror_storage_backend::get_size() const

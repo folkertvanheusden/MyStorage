@@ -38,6 +38,22 @@ storage_backend_file::~storage_backend_file()
 	close(fd);
 }
 
+storage_backend_file * storage_backend_file::load_configuration(const YAML::Node & node)
+{
+	const YAML::Node cfg = node["cfg"];
+
+	std::string id = cfg["id"].as<std::string>();
+
+	std::vector<mirror *> mirrors;
+	YAML::Node y_mirrors = cfg["mirrors"];
+	for(YAML::const_iterator it = y_mirrors.begin(); it != y_mirrors.end(); it++)
+		mirrors.push_back(mirror::load_configuration(it->as<YAML::Node>()));
+
+	std::string file = cfg["file"].as<std::string>();
+
+	return new storage_backend_file(id, file, mirrors);
+}
+
 YAML::Node storage_backend_file::emit_configuration() const
 {
 	std::vector<YAML::Node> out_mirrors;
@@ -45,7 +61,7 @@ YAML::Node storage_backend_file::emit_configuration() const
 		out_mirrors.push_back(m->emit_configuration());
 
 	YAML::Node out_cfg;
-	out_cfg["name"] = id;
+	out_cfg["id"] = id;
 	out_cfg["file"] = file;
 	out_cfg["mirrors"] = out_mirrors;
 

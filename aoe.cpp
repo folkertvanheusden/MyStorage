@@ -64,6 +64,28 @@ YAML::Node aoe::emit_configuration() const
 	return out;
 }
 
+aoe * aoe::load_configuration(const YAML::Node & node)
+{
+	const YAML::Node cfg = node["cfg"];
+
+	std::string mac = cfg["my-mac"].as<std::string>();
+
+	uint8_t my_mac[6] = { 0 };
+	if (!str_to_mac(mac, my_mac)) {
+		dolog(ll_error, "aoe::load_configuration: cannot parse MAC-address \"%s\"", mac.c_str());
+		return nullptr;
+	}
+
+	storage_backend *sb = storage_backend::load_configuration(cfg["storage-backend"]);
+
+	std::string dev_name = cfg["dev-name"].as<std::string>();
+	int mtu_size = cfg["mtu-size"].as<int>();
+	uint16_t major = cfg["major"].as<uint16_t>();
+	uint8_t minor = cfg["minor"].as<uint8_t>();
+
+	return new aoe(dev_name, sb, my_mac, mtu_size, major, minor);
+}
+
 bool aoe::announce()
 {
 	dolog(ll_debug, "aoe::announce(%s): announce shelf", id.c_str());

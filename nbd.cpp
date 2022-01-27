@@ -50,6 +50,8 @@ nbd::nbd(socket_listener *const sl, const std::vector<storage_backend *> & stora
 		sb->acquire(this);
 
 	th = new std::thread(std::ref(*this));
+
+	dolog(ll_info, "nbd(%s): started", id.c_str());
 }
 
 nbd::~nbd()
@@ -74,6 +76,20 @@ nbd::~nbd()
 	}
 
 	delete sl;
+}
+
+nbd * nbd::load_configuration(const YAML::Node & node)
+{
+	const YAML::Node cfg = node["cfg"];
+
+	std::vector<storage_backend *> sbs;
+        YAML::Node y_sbs = cfg["storage-backends"];
+        for(YAML::const_iterator it = y_sbs.begin(); it != y_sbs.end(); it++)
+                sbs.push_back(storage_backend::load_configuration(it->as<YAML::Node>()));
+
+	socket_listener *sl = socket_listener::load_configuration(cfg["socket-listener"]);
+
+	return new nbd(sl, sbs);
 }
 
 YAML::Node nbd::emit_configuration() const
@@ -447,6 +463,8 @@ void nbd::operator()()
 			continue;
 		}
 
+		dolog(ll_info, "nbd::operator(%s): connection made with %s", id.c_str(), get_endpoint_name(cfd).c_str());
+
 		std::thread *th = new std::thread([this, cfd] { this->handle_client(cfd); });
 		threads.push_back(th);
 
@@ -461,4 +479,6 @@ void nbd::operator()()
 			}
 		}
 	}
+
+	dolog(ll_info, "nbd::operator(%s): listener thread terminating", id.c_str());
 }

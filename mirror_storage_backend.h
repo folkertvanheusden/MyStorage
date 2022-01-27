@@ -26,4 +26,5 @@ public:
 	bool trim_zero(const offset_t offset, const uint32_t len, const bool trim) override;
 
 	YAML::Node emit_configuration() const override;
+	static mirror_storage_backend * load_configuration(const YAML::Node & node);
 };

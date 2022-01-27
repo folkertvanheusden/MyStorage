@@ -12,7 +12,7 @@ class nbd : public base
 {
 private:
 	socket_listener *const sl;
-	const std::vector<storage_backend *> & storage_backends;
+	const std::vector<storage_backend *> storage_backends;
 
 	std::thread *th { nullptr };
 
@@ -30,4 +30,5 @@ public:
 	void operator()();
 
 	YAML::Node emit_configuration() const override;
+	static nbd * load_configuration(const YAML::Node & node);
 };

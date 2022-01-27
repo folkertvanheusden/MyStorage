@@ -14,4 +14,7 @@ public:
 
 	bool compress(const uint8_t *const in, const size_t in_len, uint8_t **const out, size_t *const out_len) override;
 	bool decompress(const uint8_t *const in, const size_t in_len, uint8_t **const out, size_t *const out_len) override;
+
+	YAML::Node emit_configuration() const override;
+	static compresser_zlib * load_configuration(const YAML::Node & node);
 };

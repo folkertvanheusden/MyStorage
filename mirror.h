@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <yaml-cpp/yaml.h>
 
 #include "base.h"
 #include "block.h"
@@ -20,4 +21,7 @@ public:
 	virtual bool sync() = 0;
 
 	virtual bool trim_zero(const offset_t offset, const uint32_t len, const bool trim) = 0;
+
+	virtual YAML::Node emit_configuration() const = 0;
+	static mirror * load_configuration(const YAML::Node & node);
 };

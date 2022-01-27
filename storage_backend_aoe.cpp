@@ -11,6 +11,7 @@
 #include "error.h"
 #include "logging.h"
 #include "mirror.h"
+#include "net.h"
 #include "storage_backend_aoe.h"
 #include "str.h"
 
@@ -29,6 +30,55 @@ storage_backend_aoe::~storage_backend_aoe()
 {
 	if (connection.fd != -1)
 		close(connection.fd);
+}
+
+YAML::Node storage_backend_aoe::emit_configuration() const
+{
+	std::vector<YAML::Node> out_mirrors;
+	for(auto m : mirrors)
+		out_mirrors.push_back(m->emit_configuration());
+
+	YAML::Node out_cfg;
+	out_cfg["id"] = id;
+	out_cfg["mirrors"] = out_mirrors;
+	out_cfg["dev-name"] = dev_name;
+	out_cfg["major"] = major;
+	out_cfg["minor"] = minor;
+	out_cfg["mtu-size"] = connection.mtu_size;
+	out_cfg["my-mac"] = myformat("%02x:%02x:%02x:%02x:%02x:%02x", my_mac[0], my_mac[1], my_mac[2], my_mac[3], my_mac[4], my_mac[5]);;
+
+	YAML::Node out;
+	out["type"] = "storage-backend-aoe";
+	out["cfg"] = out_cfg;
+
+	return out;
+}
+
+storage_backend_aoe * storage_backend_aoe::load_configuration(const YAML::Node & node)
+{
+	const YAML::Node cfg = node["cfg"];
+
+	std::string name = cfg["id"].as<std::string>();
+
+	std::vector<mirror *> mirrors;
+	YAML::Node y_mirrors = cfg["mirrors"];
+	for(YAML::const_iterator it = y_mirrors.begin(); it != y_mirrors.end(); it++)
+		mirrors.push_back(mirror::load_configuration(it->as<YAML::Node>()));
+
+	std::string dev_name = cfg["dev-name"].as<std::string>();
+	uint16_t major = cfg["major"].as<uint16_t>();
+	uint8_t minor = cfg["minor"].as<uint8_t>();
+	int mtu_size = cfg["mtu-size"].as<int>();
+
+	std::string mac = cfg["my-mac"].as<std::string>();
+
+	uint8_t my_mac[6] = { 0 };
+	if (!str_to_mac(mac, my_mac)) {
+		dolog(ll_error, "storage_backend_aoe::load_configuration: cannot parse MAC-address \"%s\"", mac.c_str());
+		return nullptr;
+	}
+
+	return new storage_backend_aoe(name, mirrors, dev_name, my_mac, major, minor, mtu_size);
 }
 
 typedef enum { ACS_discover, ACS_discover_sent, ACS_identify, ACS_identify_sent, ACS_running, ACS_end } aoe_connect_state_t;

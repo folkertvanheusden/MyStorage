@@ -16,7 +16,7 @@
 #include "str.h"
 
 
-socket_listener_ipv4::socket_listener_ipv4(const char *const listen_addr, const int listen_port) : listen_addr(listen_addr), listen_port(listen_port)
+socket_listener_ipv4::socket_listener_ipv4(const std::string & listen_addr, const int listen_port) : listen_addr(listen_addr), listen_port(listen_port)
 {
 	fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (fd == -1)
@@ -30,12 +30,12 @@ socket_listener_ipv4::socket_listener_ipv4(const char *const listen_addr, const 
 	servaddr.sin_family = AF_INET;
 	servaddr.sin_port = htons(listen_port);
 
-	if (inet_aton(listen_addr, &servaddr.sin_addr) == -1)
-		throw myformat("socket_listener_ipv4: problem interpreting \"%s\": %s", listen_addr, strerror(errno));
+	if (inet_aton(listen_addr.c_str(), &servaddr.sin_addr) == -1)
+		throw myformat("socket_listener_ipv4: problem interpreting \"%s\": %s", listen_addr.c_str(), strerror(errno));
 
 	// Binding newly created socket to given IP and verification
 	if (bind(fd, reinterpret_cast<sockaddr *>(&servaddr), sizeof(servaddr)) == -1)
-		throw myformat("socket_listener_ipv4: failed to bind to [%s]:%d: %s", listen_addr, listen_port, strerror(errno));
+		throw myformat("socket_listener_ipv4: failed to bind to [%s]:%d: %s", listen_addr.c_str(), listen_port, strerror(errno));
 
 	if (listen(fd, SOMAXCONN) == -1)
 		throw myformat("socket_listener_ipv4: failed to listen on socket: %s", strerror(errno));
@@ -44,11 +44,21 @@ socket_listener_ipv4::socket_listener_ipv4(const char *const listen_addr, const 
 	if (setsockopt(fd, SOL_TCP, TCP_FASTOPEN, &qlen, sizeof(qlen)) == -1)
 		throw myformat("socket_listener_ipv4: failed to enable \"tcp fastopen\": %s", strerror(errno));
 
-	dolog(ll_info, "socket_listener_ipv4: listening on [%s]:%d", listen_addr, listen_port);
+	dolog(ll_info, "socket_listener_ipv4: listening on [%s]:%d", listen_addr.c_str(), listen_port);
 }
 
 socket_listener_ipv4::~socket_listener_ipv4()
 {
+}
+
+socket_listener_ipv4 * socket_listener_ipv4::load_configuration(const YAML::Node & node)
+{
+	const YAML::Node cfg = node["cfg"];
+
+	std::string listen_addr = cfg["listen-addr"].as<std::string>();
+	int listen_port = cfg["listen-port"].as<int>();
+
+	return new socket_listener_ipv4(listen_addr, listen_port);
 }
 
 YAML::Node socket_listener_ipv4::emit_configuration() const
@@ -71,9 +81,11 @@ std::string socket_listener_ipv4::get_listen_address() const
 
 int socket_listener_ipv4::wait_for_client(std::atomic_bool *const stop_flag)
 {
+	dolog(ll_debug, "socket_listener_ipv4::wait_for_client: starting to wait on fd %d", fd);
+
 	int cfd = -1;
 
-	struct pollfd fds[] = { { 1, POLLIN, 0 } };
+	struct pollfd fds[] = { { fd, POLLIN, 0 } };
 
 	for(;!*stop_flag;) {
 		int rc = poll(fds, 1, 250);
@@ -81,7 +93,7 @@ int socket_listener_ipv4::wait_for_client(std::atomic_bool *const stop_flag)
 			continue;
 
 		if (rc == -1) {
-			dolog(ll_error, "socket_listener_ipv4::wait_for_client: failed to invoke poll on fd %d", cfd);
+			dolog(ll_error, "socket_listener_ipv4::wait_for_client: failed to invoke poll on fd %d", fd);
 			break;
 		}
 

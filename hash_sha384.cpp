@@ -12,6 +12,19 @@ hash_sha384::~hash_sha384()
 {
 }
 
+YAML::Node hash_sha384::emit_configuration() const
+{
+        YAML::Node out;
+        out["type"] = "hash-sha384";
+
+        return out;
+}
+
+hash_sha384 * hash_sha384::load_configuration(const YAML::Node & node)
+{
+	return new hash_sha384();
+}
+
 int hash_sha384::get_size() const
 {
 	return CryptoPP::SHA3_384::DIGESTSIZE;

@@ -29,4 +29,5 @@ public:
 	void operator()();
 
 	YAML::Node emit_configuration() const override;
+	static aoe * load_configuration(const YAML::Node & node);
 };

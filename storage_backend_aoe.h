@@ -35,4 +35,7 @@ public:
 	bool fsync() override;
 
 	bool trim_zero(const offset_t offset, const uint32_t len, const bool trim, int *const err) override;
+
+	YAML::Node emit_configuration() const;
+	static storage_backend_aoe * load_configuration(const YAML::Node & node);
 };

@@ -2,7 +2,9 @@
 #include <stdint.h>
 
 #include "hash.h"
+#include "hash_sha384.h"
 #include "logging.h"
+#include "str.h"
 
 
 hash::hash()
@@ -11,6 +13,18 @@ hash::hash()
 
 hash::~hash()
 {
+}
+
+hash * hash::load_configuration(const YAML::Node & node)
+{
+        const std::string type = str_tolower(node["type"].as<std::string>());
+
+	if (type == "hash-sha384")
+		return hash_sha384::load_configuration(node);
+
+	dolog(ll_error, "hash::load_configuration: hash type \"%s\" is not known", type.c_str());
+
+	return nullptr;
 }
 
 std::optional<std::string> hash::do_hash(const uint8_t *const in, const size_t len)

@@ -15,6 +15,19 @@ compresser_lzo::~compresser_lzo()
 {
 }
 
+YAML::Node compresser_lzo::emit_configuration() const
+{
+        YAML::Node out;
+        out["type"] = "compresser-lzo";
+
+        return out;
+}
+
+compresser_lzo * compresser_lzo::load_configuration(const YAML::Node & node)
+{
+	return new compresser_lzo();
+}
+
 bool compresser_lzo::compress(const uint8_t *const in, const size_t in_len, uint8_t **const out, size_t *const out_len)
 {
 	if (in_len > UINT32_MAX) {

@@ -35,6 +35,28 @@ storage_backend_dedup::~storage_backend_dedup()
 	dolog(ll_info, "~storage_backend_dedup: database closed");
 }
 
+storage_backend_dedup * storage_backend_dedup::load_configuration(const YAML::Node & node)
+{
+	const YAML::Node cfg = node["cfg"];
+
+	std::string id = cfg["id"].as<std::string>();
+
+	std::vector<mirror *> mirrors;
+	YAML::Node y_mirrors = cfg["mirrors"];
+	for(YAML::const_iterator it = y_mirrors.begin(); it != y_mirrors.end(); it++)
+		mirrors.push_back(mirror::load_configuration(it->as<YAML::Node>()));
+
+	std::string file = cfg["file"].as<std::string>();
+
+	offset_t size = cfg["size"].as<uint64_t>();
+
+	int block_size = cfg["block-size"].as<int>();
+
+	hash *h = hash::load_configuration(cfg["hash"]);
+
+	return new storage_backend_dedup(id, file, h, mirrors, size, block_size);
+}
+
 YAML::Node storage_backend_dedup::emit_configuration() const
 {
 	std::vector<YAML::Node> out_mirrors;
@@ -42,11 +64,12 @@ YAML::Node storage_backend_dedup::emit_configuration() const
 		out_mirrors.push_back(m->emit_configuration());
 
 	YAML::Node out_cfg;
-	out_cfg["name"] = id;
+	out_cfg["id"] = id;
 	out_cfg["mirrors"] = out_mirrors;
 	out_cfg["file"] = file;
 	out_cfg["size"] = size;
 	out_cfg["block-size"] = block_size;
+	out_cfg["hash"] = h->emit_configuration();
 
 	YAML::Node out;
 	out["type"] = "storage-backend-dedup";

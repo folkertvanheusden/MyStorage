@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string>
+#include <yaml-cpp/yaml.h>
 
 
 class hash
@@ -18,4 +19,7 @@ public:
 
 	// return hex string
 	std::optional<std::string> do_hash(const uint8_t *const in, const size_t len);
+
+	virtual YAML::Node emit_configuration() const = 0;
+	static hash * load_configuration(const YAML::Node & node);
 };

@@ -18,6 +18,7 @@
 #include "storage_backend_compressed_dir.h"
 #include "storage_backend_dedup.h"
 #include "storage_backend_file.h"
+#include "str.h"
 
 std::atomic_bool stop_flag { false };
 
@@ -26,14 +27,65 @@ void sigh(int sig)
 	stop_flag = true;
 }
 
+void store_configuration(const std::vector<base *> & servers, const std::string & file)
+{
+	YAML::Node out;
+	out["type"] = "MyStorage";
+
+	std::vector<YAML::Node> y_servers;
+	for(auto s : servers)
+		y_servers.push_back(s->emit_configuration());
+
+	out["cfg"] = y_servers;
+
+	YAML::Emitter output;
+	output << out;
+
+	FILE *fh = fopen(file.c_str(), "w");
+	if (fh) {
+		if (size_t(fprintf(fh, "%s", output.c_str())) != output.size())
+			dolog(ll_error, "store_configuration: cannot write to file \"%s\": %s", file.c_str(), strerror(errno));
+
+		fclose(fh);
+	}
+	else {
+		dolog(ll_error, "store_configuration: cannot create file \"%s\": %s", file.c_str(), strerror(errno));
+	}
+}
+
+std::vector<base *> load_configuration(const std::string & file)
+{
+	YAML::Node config = YAML::LoadFile(file);
+
+	YAML::Node cfg = config["cfg"];
+
+	std::vector<base *> servers;
+
+	for(YAML::const_iterator it = cfg.begin(); it != cfg.end(); it++) {
+		const YAML::Node node = it->as<YAML::Node>();
+
+		std::string type = str_tolower(node["type"].as<std::string>());
+
+		if (type == "nbd")
+			servers.push_back(nbd::load_configuration(node));
+		else if (type == "aoe")
+			servers.push_back(aoe::load_configuration(node));
+		else
+			dolog(ll_error, "load_configuration: server type \"%s\" is unknown", type.c_str(), strerror(errno));
+	}
+
+	return servers;
+}
+
 int main(int argc, char *argv[])
 {
-	setlog("mystorage.log", ll_info, ll_info);
+	setlog("mystorage.log", ll_debug, ll_debug);  // TODO add to configuration file
 	dolog(ll_info, "MyStorage starting");
 
 	signal(SIGTERM, sigh);
 	signal(SIGINT, sigh);
 
+#if 0
 //	constexpr uint8_t aoe_client_mac[] = { 0x32, 0x00, 0x11, 0x22, 0x33, 0x44 };
 //	storage_backend_aoe *sb_aoe = new storage_backend_aoe("aoe", { }, "c_aoe", aoe_client_mac, 66, 6, 0);
 
@@ -73,12 +125,16 @@ int main(int argc, char *argv[])
 
 	constexpr uint8_t my_mac[] = { 0x32, 0x11, 0x22, 0x33, 0x44, 0x55 };
 	aoe *aoe_ = new aoe("ata", sb4, my_mac, 0, 11, 1);
+#endif
+
+	auto servers = load_configuration("mystorage.yaml");
 
 	dolog(ll_info, "MyStorage running");
 
 	for(;!stop_flag;)
 		pause();
 
+#if 0
 	std::vector<YAML::Node> servers;
 	servers.push_back(nbd_->emit_configuration());
 	servers.push_back(aoe_->emit_configuration());
@@ -95,11 +151,15 @@ int main(int argc, char *argv[])
 		fprintf(fh, "%s", output.c_str());
 		fclose(fh);
 	}
+#endif
 
 	dolog(ll_info, "MyStorage terminating");
 
-	delete aoe_;
-	delete nbd_;
+	for(auto s : servers)
+		delete s;
+
+//	delete aoe_;
+//	delete nbd_;
 
 	fflush(nullptr);
 	sync();

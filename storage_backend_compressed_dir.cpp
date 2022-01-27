@@ -44,17 +44,38 @@ YAML::Node storage_backend_compressed_dir::emit_configuration() const
 		out_mirrors.push_back(m->emit_configuration());
 
 	YAML::Node out_cfg;
-	out_cfg["name"] = id;
+	out_cfg["id"] = id;
 	out_cfg["mirrors"] = out_mirrors;
 	out_cfg["directory"] = dir;
 	out_cfg["block-size"] = block_size;
 	out_cfg["total-size"] = total_size;
+	out_cfg["compresser"] = c->emit_configuration();
 
 	YAML::Node out;
 	out["type"] = "storage-backend-compressed-dir";
 	out["cfg"] = out_cfg;
 
 	return out;
+}
+
+storage_backend_compressed_dir * storage_backend_compressed_dir::load_configuration(const YAML::Node & node)
+{
+	const YAML::Node cfg = node["cfg"];
+
+	std::string id = cfg["id"].as<std::string>();
+
+	std::vector<mirror *> mirrors;
+	YAML::Node y_mirrors = cfg["mirrors"];
+	for(YAML::const_iterator it = y_mirrors.begin(); it != y_mirrors.end(); it++)
+		mirrors.push_back(mirror::load_configuration(it->as<YAML::Node>()));
+
+	std::string directory = cfg["directory"].as<std::string>();
+	int block_size = cfg["block-size"].as<int>();
+	int total_size = cfg["total-size"].as<uint64_t>();
+
+	compresser *c = compresser::load_configuration(cfg["compresser"]);
+
+	return new storage_backend_compressed_dir(id, directory, block_size, total_size, c, mirrors);
 }
 
 offset_t storage_backend_compressed_dir::get_size() const

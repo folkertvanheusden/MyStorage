@@ -13,6 +13,27 @@ compresser_zlib::~compresser_zlib()
 {
 }
 
+YAML::Node compresser_zlib::emit_configuration() const
+{
+        YAML::Node out_cfg;
+        out_cfg["compression-level"] = compression_level;
+
+        YAML::Node out;
+        out["type"] = "compresser-zlib";
+        out["cfg"] = out_cfg;
+
+        return out;
+}
+
+compresser_zlib * compresser_zlib::load_configuration(const YAML::Node & node)
+{
+	const YAML::Node cfg = node["cfg"];
+
+	int compression_level = cfg["compression-level"].as<int>();
+
+	return new compresser_zlib(compression_level);
+}
+
 bool compresser_zlib::compress(const uint8_t *const in, const size_t in_len, uint8_t **const out, size_t *const out_len)
 {
 	if (in_len > UINT32_MAX) {
