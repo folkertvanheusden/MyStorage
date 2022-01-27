@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <string>
 #include <vector>
+#include <yaml-cpp/yaml.h>
 
 #include "base.h"
 #include "block.h"

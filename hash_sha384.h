@@ -1,3 +1,5 @@
+#include <yaml-cpp/yaml.h>
+
 #include "hash.h"
 
 

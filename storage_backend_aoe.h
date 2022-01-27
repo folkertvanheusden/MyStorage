@@ -1,4 +1,5 @@
 #include <vector>
+#include <yaml-cpp/yaml.h>
 
 #include "aoe-generic.h"
 #include "mirror.h"

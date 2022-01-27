@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <yaml-cpp/yaml.h>
 
 #include "compresser.h"
 

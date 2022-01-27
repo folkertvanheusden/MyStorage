@@ -1,5 +1,6 @@
 #pragma once
 #include <atomic>
+#include <yaml-cpp/yaml.h>
 
 #include "base.h"
 
