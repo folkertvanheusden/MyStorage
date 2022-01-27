@@ -18,6 +18,11 @@ block::block(const std::vector<uint8_t> & data) : data(reinterpret_cast<uint8_t 
 
 	memcpy(const_cast<uint8_t *>(this->data), data.data(), data.size());
 }
+
+block::block(const block & other) : data(reinterpret_cast<uint8_t *>(malloc(other.get_size()))), len(other.get_size())
+{
+	memcpy(const_cast<uint8_t *>(this->data), other.get_data(), other.get_size());
+}
 							    
 block::~block()
 {
