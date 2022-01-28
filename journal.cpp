@@ -450,7 +450,7 @@ bool journal::trim_zero(const offset_t offset, const uint32_t len, const bool tr
 
 			if (rc == false) {
 				*err = EIO;
-				dolog(ll_error, "journal::trim_zero(%s): failed to %s block %ld", id.c_str(), block_nr, trim ? "trim" : "zero");
+				dolog(ll_error, "journal::trim_zero(%s): failed to %s block %ld", id.c_str(), trim ? "trim" : "zero", block_nr);
 				break;
 			}
 		}
