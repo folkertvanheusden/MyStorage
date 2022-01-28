@@ -19,8 +19,11 @@ private:
 	kyotocabinet::PolyDB db;
 	const std::string    file;
 
-	bool get_block(const block_nr_t block_nr, uint8_t **const data);
-	bool put_block(const block_nr_t block_nr, const uint8_t *const data_in);
+	bool get_block(const block_nr_t block_nr, uint8_t **const data);  // with locking
+	bool get_block_int(const block_nr_t block_nr, uint8_t **const data);  // without locking
+	bool put_block(const block_nr_t block_nr, const uint8_t *const data_in);  // with locking
+	bool put_block_int(const block_nr_t block_nr, const uint8_t *const data_in);  // without locking
+
 	void un_lock_block_group(const offset_t offset, const uint32_t size, const bool do_lock, const bool shared);
 
 	bool put_key_value(const std::string & key, const uint8_t *const value, const int value_len);
