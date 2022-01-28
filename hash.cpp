@@ -1,5 +1,7 @@
+#include <assert.h>
 #include <optional>
 #include <stdint.h>
+#include <crypto++/crc.h>
 
 #include "hash.h"
 #include "hash_sha384.h"
@@ -53,4 +55,15 @@ std::optional<std::string> hash::do_hash(const uint8_t *const in, const size_t l
 	free(new_hash);
 
 	return out;
+}
+
+uint32_t calc_crc(const uint8_t *const in, const size_t len)
+{
+	CryptoPP::CRC32 crc;
+
+	crc.Update(in, len);
+
+	assert(crc.DigestSize() == 4);
+
+	return (crc.GetCrcByte(0) << 24) | (crc.GetCrcByte(1) << 16) | (crc.GetCrcByte(2) << 8) | crc.GetCrcByte(3);
 }

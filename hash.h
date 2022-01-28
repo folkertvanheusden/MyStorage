@@ -23,3 +23,6 @@ public:
 	virtual YAML::Node emit_configuration() const = 0;
 	static hash * load_configuration(const YAML::Node & node);
 };
+
+// acoording to the libcrypt++ documentation, this uses polynomial 0xEDB88320
+uint32_t calc_crc(const uint8_t *const in, const size_t len);
