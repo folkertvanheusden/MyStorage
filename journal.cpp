@@ -10,11 +10,6 @@
 
 journal::journal(const std::string & id, storage_backend *const data, storage_backend *const journal_) : storage_backend(id, data->get_block_size(), { }), data(data), journal_(journal_)
 {
-	pthread_mutex_init(&lock, nullptr);
-
-	pthread_cond_init(&cond_push, nullptr);
-	pthread_cond_init(&cond_pull, nullptr);
-
 	// retrieve journal meta data from storage
 	block *b = nullptr;
 	int err = 0;
@@ -93,18 +88,14 @@ journal::journal(const std::string & id, storage_backend *const data, storage_ba
 journal::~journal()
 {
 	stop_flag = true;
-	pthread_cond_signal(&cond_push);
-	pthread_cond_signal(&cond_pull);
+
+	cond_push.notify_all();
+	cond_pull.notify_all();
 
 	if (th) {
 		th->join();
 		delete th;
 	}
-
-	pthread_cond_destroy(&cond_push);
-	pthread_cond_destroy(&cond_pull);
-
-	pthread_mutex_destroy(&lock);
 }
 
 // 'lock' must be locked
@@ -176,13 +167,12 @@ bool journal::push_action(const journal_action_t a, const block_nr_t block_nr, c
 		return false;
 	}
 
-	pthread_mutex_lock(&lock);
+	std::unique_lock<std::mutex> lck(lock);
 
 	while(jm.full && !stop_flag)
-		pthread_cond_wait(&cond_pull, &lock);
+		cond_pull.wait(lck);
 
 	if (stop_flag) {
-		pthread_mutex_unlock(&lock);
 		dolog(ll_error, "journal::push_action: action terminated early");
 		return false;
 	}
@@ -192,7 +182,6 @@ bool journal::push_action(const journal_action_t a, const block_nr_t block_nr, c
 
 	uint8_t *j_element = reinterpret_cast<uint8_t *>(calloc(1, target_size));
 	if (!j_element) {
-		pthread_mutex_unlock(&lock);
 		dolog(ll_error, "journal::push_action: cannot allocate %zu bytes of memory", target_size);
 		return false;
 	}
@@ -214,7 +203,6 @@ bool journal::push_action(const journal_action_t a, const block_nr_t block_nr, c
 	journal_->put_data((jm.write_pointer + 1) * target_size, b, &err);
 
 	if (err) {
-		pthread_mutex_unlock(&lock);
 		dolog(ll_error, "journal::push_action: failed to write journal element: %s", strerror(err));
 		return false;
 	}
@@ -230,21 +218,17 @@ bool journal::push_action(const journal_action_t a, const block_nr_t block_nr, c
 	put_in_cache(reinterpret_cast<journal_element_t *>(j_element));
 
 	if (update_journal_meta_data() == false) {
-		pthread_mutex_unlock(&lock);
 		dolog(ll_error, "journal::push_action: failed to write journal meta-data to disk");
 		return false;
 	}
 
 	// make sure journal is on disk
 	if (journal_->fsync() == false) {
-		pthread_mutex_unlock(&lock);
 		dolog(ll_error, "journal::push_action: failed to sync journal to disk");
 		return false;
 	}
 
-	pthread_cond_signal(&cond_push);
-
-	pthread_mutex_unlock(&lock);
+	cond_push.notify_all();
 
 	return true;
 }
@@ -254,13 +238,12 @@ void journal::operator()()
 	dolog(ll_info, "journal::operator: thread started");
 
 	while(!stop_flag) {
-		pthread_mutex_lock(&lock);
+		std::unique_lock<std::mutex> lck(lock);
 
 		while(jm.read_pointer == jm.write_pointer && !jm.full && !stop_flag)
-			pthread_cond_wait(&cond_push, &lock);
+			cond_push.wait(lck);
 
 		if (stop_flag) {
-			pthread_mutex_unlock(&lock);
 			dolog(ll_debug, "journal::operator: thread terminating");
 			break;
 		}
@@ -272,7 +255,6 @@ void journal::operator()()
 		int err = 0;
 		journal_->get_data((jm.read_pointer + 1) * target_size, target_size, &b, &err);
 		if (err) {
-			pthread_mutex_unlock(&lock);
 			journal_commit_fatal_error = true;
 			dolog(ll_error, "journal::operator: failed to retrieve journal action from storage");
 			break;
@@ -299,7 +281,6 @@ void journal::operator()()
 			data->put_data(je->target_block * jm.block_size, b2, &err);
 
 			if (err) {
-				pthread_mutex_unlock(&lock);
 				delete b;
 				journal_commit_fatal_error = true;
 				dolog(ll_error, "journal::operator: failed to write data to storage: %s", strerror(err));
@@ -309,7 +290,6 @@ void journal::operator()()
 		else if (je->a == JA_trim || je->a == JA_zero) {
 			int err = 0;
 			if (data->trim_zero(je->target_block * jm.block_size, jm.block_size, je->a == JA_trim, &err) == false) {
-				pthread_mutex_unlock(&lock);
 				delete b;
 				journal_commit_fatal_error = true;
 				dolog(ll_error, "journal::operator: failed to trim/zero storage: %s", strerror(err));
@@ -317,7 +297,6 @@ void journal::operator()()
 			}
 		}
 		else {
-			pthread_mutex_unlock(&lock);
 			delete b;
 			journal_commit_fatal_error = true;
 			dolog(ll_error, "journal::operator: unknown action %d", je->a);
@@ -335,7 +314,6 @@ void journal::operator()()
 
 		auto it = cache.find(je->target_block);
 		if (it == cache.end()) {
-			pthread_mutex_unlock(&lock);
 			journal_commit_fatal_error = true;
 			dolog(ll_error, "journal::operator: block %lu not in RAM cache", je->target_block);
 			delete b;
@@ -352,7 +330,6 @@ void journal::operator()()
 		delete b;
 
 		if (update_journal_meta_data() == false) {
-			pthread_mutex_unlock(&lock);
 			journal_commit_fatal_error = true;
 			dolog(ll_error, "journal::operator: failed to write journal meta-data to storage");
 			break;
@@ -360,42 +337,36 @@ void journal::operator()()
 
 		// make sure journal is on disk
 		if (journal_->fsync() == false) {
-			pthread_mutex_unlock(&lock);
 			journal_commit_fatal_error = true;
 			dolog(ll_error, "journal::operator: failed to sync journal to disk");
 			break;
 		}
 
 		if (journal_->trim_zero((clean_element + 1) * target_size, target_size, true, &err) == false) {
-			pthread_mutex_unlock(&lock);
 			journal_commit_fatal_error = true;
 			dolog(ll_error, "journal::operator: failed to clear journal entry");
 			break;
 		}
 
-		pthread_cond_signal(&cond_pull);
-
-		pthread_mutex_unlock(&lock);
-}
+		cond_pull.notify_all();
+	}
 
 	dolog(ll_info, "journal::operator: thread terminated with %lu items in journal", jm.cur_n);
 }
 
 void journal::flush_journal()
 {
-	pthread_mutex_lock(&lock);
+	std::unique_lock<std::mutex> lck(lock);
 
 	while(jm.cur_n > 0 && !stop_flag)
-		pthread_cond_wait(&cond_pull, &lock);
+		cond_pull.wait(lck);
 
 	dolog(ll_info, "journal::flush_journal: journal empty, terminating thread");
 
 	stop_flag = true;
 
-	pthread_cond_signal(&cond_pull);
-	pthread_cond_signal(&cond_push);
-
-	pthread_mutex_unlock(&lock);
+	cond_pull.notify_all();
+	cond_push.notify_all();
 }
 
 offset_t journal::get_size() const
@@ -407,7 +378,7 @@ bool journal::get_block(const block_nr_t block_nr, uint8_t **const data)
 {
 	bool rc = false;
 
-	pthread_mutex_lock(&lock);  // TODO: r/w lock
+	std::unique_lock<std::mutex> lck(lock);
 
 	auto it = cache.find(block_nr);
 	if (it != cache.end()) {
@@ -428,8 +399,6 @@ bool journal::get_block(const block_nr_t block_nr, uint8_t **const data)
 		else
 			rc = true;
 	}
-
-	pthread_mutex_unlock(&lock);
 
 	return rc;
 }

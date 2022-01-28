@@ -1,4 +1,5 @@
-#include <pthread.h>
+#include <condition_variable>
+#include <mutex>
 #include <thread>
 
 #include "block.h"
@@ -39,10 +40,9 @@ private:
 
 	journal_meta_t         jm { 0 };
 
-	// TODO: replace by c++ objects
-	pthread_mutex_t        lock;
-	pthread_cond_t         cond_pull;
-	pthread_cond_t         cond_push;
+	std::mutex             lock;
+	std::condition_variable_any cond_pull;
+	std::condition_variable_any cond_push;
 
 	lock_group             lgj;
 
