@@ -273,20 +273,34 @@ bool storage_backend_dedup::map_blocknr_to_hash(const block_nr_t block_nr, const
 	return put_key_value(get_hashforblocknr_key_for_blocknr(block_nr), reinterpret_cast<const uint8_t *>(new_block_hash.c_str()), new_block_hash.size());
 }
 
+#define ABORT_TRANSACTION(db, where) 				\
+	do {							\
+		if ((db).end_transaction(false) == false) {	\
+			dolog(ll_error, "%s failed aborting transaction: %s", where, db.error().message()); \
+			return false;				\
+		}						\
+	}							\
+	while(0)
+
 bool storage_backend_dedup::put_block(const block_nr_t block_nr, const uint8_t *const data_in)
 {
 	const offset_t offset = block_nr * block_size;
 
 	lgdd.un_lock_block_group(offset, block_size, block_size, true, false);
 
-	// FIXME start_transaction
+	if (db.begin_transaction() == false) {
+		ABORT_TRANSACTION(db, myformat("storage_backend_dedup::put_block(%s):", id.c_str()));
+		return false;
+	}
 
 	// get hash for block (get_hash_for_block())
 	auto cur_hash_for_blocknr = get_hash_for_block(block_nr);
 	if (cur_hash_for_blocknr.has_value() == false) {
 		lgdd.un_lock_block_group(offset, block_size, block_size, false, false);
-			// FIXME abort_transaction
+		ABORT_TRANSACTION(db, myformat("storage_backend_dedup::put_block(%s):", id.c_str()));
+
 		dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to get hash for blocknr %ld", id.c_str(), block_nr);
+
 		return false;
 	}
 
@@ -296,8 +310,11 @@ bool storage_backend_dedup::put_block(const block_nr_t block_nr, const uint8_t *
 		int64_t new_use_count = 0;
 		if (decrease_use_count(cur_hash_for_blocknr.value(), &new_use_count) == false) {
 			lgdd.un_lock_block_group(offset, block_size, block_size, false, false);
-			// FIXME abort_transaction
+
+			ABORT_TRANSACTION(db, myformat("storage_backend_dedup::put_block(%s):", id.c_str()));
+
 			dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to retrieve use-count for hash \"%s\"", id.c_str(), cur_hash_for_blocknr.value().c_str());
+
 			return false;
 		}
 
@@ -306,22 +323,31 @@ bool storage_backend_dedup::put_block(const block_nr_t block_nr, const uint8_t *
 			// - delete block for that hash
 			if (delete_block_by_hash(cur_hash_for_blocknr.value()) == false) {
 				lgdd.un_lock_block_group(offset, block_size, block_size, false, false);
-			// FIXME abort_transaction
+
+				ABORT_TRANSACTION(db, myformat("storage_backend_dedup::put_block(%s):", id.c_str()));
+
 				dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to delete block for hash \"%s\"", id.c_str(), cur_hash_for_blocknr.value().c_str());
+
 				return false;
 			}
 
 			// delete counter
 			if (delete_block_counter_by_hash(get_hashforblocknr_key_for_blocknr(block_nr)) == false) {
 				lgdd.un_lock_block_group(offset, block_size, block_size, false, false);
-			// FIXME abort_transaction
+
+				ABORT_TRANSACTION(db, myformat("storage_backend_dedup::put_block(%s):", id.c_str()));
+
 				dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to delete counter for hash \"%s\"", id.c_str(), cur_hash_for_blocknr.value().c_str());
+
 				return false;
 			}
 		}
 		else if (new_use_count < 0) {
 			lgdd.un_lock_block_group(offset, block_size, block_size, false, false);
-			// FIXME abort_transaction
+
+			ABORT_TRANSACTION(db, myformat("storage_backend_dedup::put_block(%s):", id.c_str()));
+
+
 			dolog(ll_error, "storage_backend_dedup::put_block(%s): new_use_count < 0! (%ld) dataset is corrupt!", id.c_str(), new_use_count);
 			return false;
 		}
@@ -331,16 +357,22 @@ bool storage_backend_dedup::put_block(const block_nr_t block_nr, const uint8_t *
 	auto new_block_hash = h->do_hash(data_in, block_size);
 	if (!new_block_hash.has_value()) {
 		lgdd.un_lock_block_group(offset, block_size, block_size, false, false);
-			// FIXME abort_transaction
+
+		ABORT_TRANSACTION(db, myformat("storage_backend_dedup::put_block(%s):", id.c_str()));
+
 		dolog(ll_error, "storage_backend_dedup::put_block(%s): cannot calculate hash", id.c_str());
+
 		return false;
 	}
 
 	int64_t new_block_use_count = 0;
 	if (get_use_count(new_block_hash.value(), &new_block_use_count) == false) {
 		lgdd.un_lock_block_group(offset, block_size, block_size, false, false);
-			// FIXME abort_transaction
+
+		ABORT_TRANSACTION(db, myformat("storage_backend_dedup::put_block(%s):", id.c_str()));
+
 		dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to retrieve use-count for hash \"%s\"", id.c_str(), new_block_hash.value().c_str());
+
 		return false;
 	}
 
@@ -350,15 +382,21 @@ bool storage_backend_dedup::put_block(const block_nr_t block_nr, const uint8_t *
 		int64_t temp = 0;
 		if (increase_use_count(new_block_hash.value(), &temp) == false) {
 			lgdd.un_lock_block_group(offset, block_size, block_size, false, false);
-			// FIXME abort_transaction
+
+			ABORT_TRANSACTION(db, myformat("storage_backend_dedup::put_block(%s):", id.c_str()));
+
 			dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to increase use-count for data block with hash \"%s\"", id.c_str(), new_block_hash.value().c_str());
+
 			return false;
 		}
 
 		if (temp != new_block_use_count + 1) {
 			lgdd.un_lock_block_group(offset, block_size, block_size, false, false);
-			// FIXME abort_transaction
+
+			ABORT_TRANSACTION(db, myformat("storage_backend_dedup::put_block(%s):", id.c_str()));
+
 			dolog(ll_error, "storage_backend_dedup::put_block(%s): new count (%ld) not as expected (%ld) hash \"%s\"", id.c_str(), temp, new_block_use_count + 1, new_block_hash.value().c_str());
+
 			return false;
 		}
 	}
@@ -367,16 +405,22 @@ bool storage_backend_dedup::put_block(const block_nr_t block_nr, const uint8_t *
 		//   - set count to 1
 		if (set_use_count(new_block_hash.value(), 1) == false) {
 			lgdd.un_lock_block_group(offset, block_size, block_size, false, false);
-			// FIXME abort_transaction
+
+			ABORT_TRANSACTION(db, myformat("storage_backend_dedup::put_block(%s):", id.c_str()));
+
 			dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to set use-count for data block with hash \"%s\" to 1", id.c_str(), new_block_hash.value().c_str());
+
 			return false;
 		}
 
 		// - put block
 		if (put_key_value(get_data_key_for_hash(new_block_hash.value()), data_in, block_size) == false) {
 			lgdd.un_lock_block_group(offset, block_size, block_size, false, false);
-			// FIXME abort_transaction
+
+			ABORT_TRANSACTION(db, myformat("storage_backend_dedup::put_block(%s):", id.c_str()));
+
 			dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to store data block with hash \"%s\"", id.c_str(), new_block_hash.value().c_str());
+
 			return false;
 		}
 	}
@@ -384,12 +428,19 @@ bool storage_backend_dedup::put_block(const block_nr_t block_nr, const uint8_t *
 	// - put mapping blocknr to new-block-hash
 	if (map_blocknr_to_hash(block_nr, new_block_hash.value()) == false) {
 		lgdd.un_lock_block_group(offset, block_size, block_size, false, false);
-		// FIXME abort_transaction
+
+		ABORT_TRANSACTION(db, myformat("storage_backend_dedup::put_block(%s):", id.c_str()));
+
 		dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to map blocknr %ld to hash \"%s\"", id.c_str(), block_nr, new_block_hash.value().c_str());
+
 		return false;
 	}
 
 	// FIXME commit_transaction
+	if (db.end_transaction(true) == false) {
+		dolog(ll_error, "storage_backend_dedup::put_block(%s): failed committing transaction: %s", db.error().message());
+		return false;
+	}
 
 	lgdd.un_lock_block_group(offset, block_size, block_size, false, false);
 
