@@ -15,18 +15,18 @@ journal::journal(const std::string & id, storage_backend *const data, storage_ba
 	int err = 0;
 	journal_->get_data(0, sizeof(jm), &b, &err);
 	if (err)
-		throw myformat("journal: failed to retrieve meta-data: %s", strerror(err));
+		throw myformat("journal(%s): failed to retrieve meta-data: %s", id.c_str(), strerror(err));
 
 	memcpy(&jm, b->get_data(), sizeof(jm));
 
 	if (size_t(block_size) < 512 + sizeof(jm))
-		throw myformat("journal: block size (%d) too small, must be at least %d bytes", block_size, 512 + sizeof(jm));
+		throw myformat("journal(%s): block size (%d) too small, must be at least %d bytes", id.c_str(), block_size, 512 + sizeof(jm));
 
 	if (journal_->get_size() < offset_t(block_size))
-		throw myformat("journal: journal must be at least one block in size (%d bytes)", block_size);
+		throw myformat("journal(%s): journal must be at least one block in size (%d bytes)", id.c_str(), block_size);
 
 	if (jm.block_size == 0 && jm.n_elements == 0 && jm.crc == 0 && memcmp(jm.sig, journal_signature, sizeof jm.sig) != 0) {
-		dolog(ll_info, "journal: new journal");
+		dolog(ll_info, "journal(%s): new journal", id.c_str());
 
 		jm.block_size = block_size;
 		jm.n_elements = (journal_->get_size() - block_size) / (sizeof(journal_element_t) + block_size);
@@ -37,18 +37,18 @@ journal::journal(const std::string & id, storage_backend *const data, storage_ba
 		uint32_t crc = calc_crc(b->get_data() + crc_offset, b->get_size() - crc_offset);
 
 		if (crc != jm.crc)
-			throw myformat("journal: CRC mismatch (expecting: %08x, retrieved: %08x)", jm.crc, crc);
+			throw myformat("journal(%s): CRC mismatch (expecting: %08x, retrieved: %08x)", id.c_str(), jm.crc, crc);
 	}
 
 	delete b;
 
 	if (jm.n_elements == 0)
-		throw myformat("journal: journal of 0 elements in size?");
+		throw myformat("journal(%s): journal of 0 elements in size?", id.c_str());
 
 	if (jm.block_size != journal_->get_block_size())
-		throw myformat("journal: mismatch between the block sizes of the journal storage and the journal dump file");
+		throw myformat("journal(%s): mismatch between the block sizes of the journal storage and the journal dump file", id.c_str());
 
-	dolog(ll_info, "journal: %lu elements total, number filled: %lu", jm.n_elements, jm.cur_n);
+	dolog(ll_info, "journal(%s): %lu elements total, number filled: %lu", id.c_str(), jm.n_elements, jm.cur_n);
 
 	// load journal in cache
 	const size_t target_size = sizeof(journal_element_t) + jm.block_size;
@@ -60,7 +60,7 @@ journal::journal(const std::string & id, storage_backend *const data, storage_ba
 		int err = 0;
 		journal_->get_data((work_read_pointer + 1) * target_size, target_size, &b, &err);
 		if (err) {
-			dolog(ll_error, "journal: failed to retrieve journal action %d from storage", work_read_pointer);
+			dolog(ll_error, "journal(%s): failed to retrieve journal action %d from storage", id.c_str(), work_read_pointer);
 			break;
 		}
 
@@ -71,7 +71,7 @@ journal::journal(const std::string & id, storage_backend *const data, storage_ba
 
 		if (crc != je->crc) {
 			delete b;
-			dolog(ll_error, "journal: CRC mismatch (expecting: %08x, retrieved: %08x)", je->crc, crc);
+			dolog(ll_error, "journal(%s): CRC mismatch (expecting: %08x, retrieved: %08x)", id.c_str(), je->crc, crc);
 			break;
 		}
 
@@ -109,7 +109,7 @@ bool journal::update_journal_meta_data()
 	int err = 0;
 	journal_->put_data(0, jm_b, &err);
 	if (err) {
-		dolog(ll_error, "journal::update_journal_meta_data: failed to update journal meta: %s", strerror(err));
+		dolog(ll_error, "journal::update_journal_meta_data(%s): failed to update journal meta: %s", id.c_str(), strerror(err));
 		return false;
 	}
 
@@ -119,11 +119,11 @@ bool journal::update_journal_meta_data()
 // 'lock' must be locked
 bool journal::put_in_cache(const journal_element_t *const je)
 {
-	dolog(ll_debug, "journal: put element %ld in cache", je->target_block);
+	dolog(ll_debug, "journal::put_in_cache(%s): put element %ld in cache", id.c_str(), je->target_block);
 
 	uint8_t *data = reinterpret_cast<uint8_t *>(calloc(1, jm.block_size));
 	if (!data) {
-		dolog(ll_error, "journal::put_in_cache: cannot allocate %zu bytes of memory", jm.block_size);
+		dolog(ll_error, "journal::put_in_cache(%s): cannot allocate %zu bytes of memory", id.c_str(), jm.block_size);
 		return false;
 	}
 
@@ -133,7 +133,7 @@ bool journal::put_in_cache(const journal_element_t *const je)
 		// calloc takes care of this
 	}
 	else {
-		dolog(ll_error, "journal::put_in_cache: unknown action %d", je->a);
+		dolog(ll_error, "journal::put_in_cache(%s): unknown action %d", id.c_str(), je->a);
 		free(data);
 		return false;
 	}
@@ -152,18 +152,18 @@ bool journal::put_in_cache(const journal_element_t *const je)
 bool journal::push_action(const journal_action_t a, const block_nr_t block_nr, const block & data)
 {
 	if (journal_commit_fatal_error) {
-		dolog(ll_error, "journal::push_action: cannot put; journal in error state");
+		dolog(ll_error, "journal::push_action(%s): cannot put; journal in error state", id.c_str());
 		return false;
 	}
 
 	if (stop_flag) {
-		dolog(ll_error, "journal::push_action: cannot put; journal stopped");
+		dolog(ll_error, "journal::push_action(%s): cannot put; journal stopped", id.c_str());
 		return false;
 	}
 
 	// verify that blocks of data in the journal are the same size as the backend ones
 	if (data.get_size() != size_t(jm.block_size) && data.empty() == false) {
-		dolog(ll_error, "journal::push_action: data size (%zu) not expected size (%d)", data.get_size(), jm.block_size);
+		dolog(ll_error, "journal::push_action(%s): data size (%zu) not expected size (%d)", id.c_str(), data.get_size(), jm.block_size);
 		return false;
 	}
 
@@ -173,7 +173,7 @@ bool journal::push_action(const journal_action_t a, const block_nr_t block_nr, c
 		cond_pull.wait(lck);
 
 	if (stop_flag) {
-		dolog(ll_error, "journal::push_action: action terminated early");
+		dolog(ll_error, "journal::push_action(%s): action terminated early", id.c_str());
 		return false;
 	}
 
@@ -182,7 +182,7 @@ bool journal::push_action(const journal_action_t a, const block_nr_t block_nr, c
 
 	uint8_t *j_element = reinterpret_cast<uint8_t *>(calloc(1, target_size));
 	if (!j_element) {
-		dolog(ll_error, "journal::push_action: cannot allocate %zu bytes of memory", target_size);
+		dolog(ll_error, "journal::push_action(%s): cannot allocate %zu bytes of memory", id.c_str(), target_size);
 		return false;
 	}
 
@@ -203,7 +203,7 @@ bool journal::push_action(const journal_action_t a, const block_nr_t block_nr, c
 	journal_->put_data((jm.write_pointer + 1) * target_size, b, &err);
 
 	if (err) {
-		dolog(ll_error, "journal::push_action: failed to write journal element: %s", strerror(err));
+		dolog(ll_error, "journal::push_action(%s): failed to write journal element: %s", id.c_str(), strerror(err));
 		return false;
 	}
 
@@ -218,13 +218,13 @@ bool journal::push_action(const journal_action_t a, const block_nr_t block_nr, c
 	put_in_cache(reinterpret_cast<journal_element_t *>(j_element));
 
 	if (update_journal_meta_data() == false) {
-		dolog(ll_error, "journal::push_action: failed to write journal meta-data to disk");
+		dolog(ll_error, "journal::push_action(%s): failed to write journal meta-data to disk", id.c_str());
 		return false;
 	}
 
 	// make sure journal is on disk
 	if (journal_->fsync() == false) {
-		dolog(ll_error, "journal::push_action: failed to sync journal to disk");
+		dolog(ll_error, "journal::push_action(%s): failed to sync journal to disk", id.c_str());
 		return false;
 	}
 
@@ -235,7 +235,7 @@ bool journal::push_action(const journal_action_t a, const block_nr_t block_nr, c
 
 void journal::operator()()
 {
-	dolog(ll_info, "journal::operator: thread started");
+	dolog(ll_info, "journal::operator(%s): thread started", id.c_str());
 
 	while(!stop_flag) {
 		std::unique_lock<std::mutex> lck(lock);
@@ -244,7 +244,7 @@ void journal::operator()()
 			cond_push.wait(lck);
 
 		if (stop_flag) {
-			dolog(ll_debug, "journal::operator: thread terminating");
+			dolog(ll_debug, "journal::operator(%s): thread terminating", id.c_str());
 			break;
 		}
 
@@ -256,7 +256,7 @@ void journal::operator()()
 		journal_->get_data((jm.read_pointer + 1) * target_size, target_size, &b, &err);
 		if (err) {
 			journal_commit_fatal_error = true;
-			dolog(ll_error, "journal::operator: failed to retrieve journal action from storage");
+			dolog(ll_error, "journal::operator(%s): failed to retrieve journal action from storage", id.c_str());
 			break;
 		}
 
@@ -268,11 +268,11 @@ void journal::operator()()
 		if (crc != je->crc) {
 			delete b;
 			journal_commit_fatal_error = true;
-			dolog(ll_error, "journal::operator: CRC mismatch (expecting: %08x, retrieved: %08x)", je->crc, crc);
+			dolog(ll_error, "journal::operator(%s): CRC mismatch (expecting: %08x, retrieved: %08x)", id.c_str(), je->crc, crc);
 			break;
 		}
 
-		dolog(ll_debug, "journal::operator: storing block %lu", je->target_block);
+		dolog(ll_debug, "journal::operator(%s): storing block %lu", id.c_str(), je->target_block);
 
 		if (je->a == JA_write) {
 			block b2(je->data, jm.block_size, false);
@@ -283,7 +283,7 @@ void journal::operator()()
 			if (err) {
 				delete b;
 				journal_commit_fatal_error = true;
-				dolog(ll_error, "journal::operator: failed to write data to storage: %s", strerror(err));
+				dolog(ll_error, "journal::operator(%s): failed to write data to storage: %s", id.c_str(), strerror(err));
 				break;
 			}
 		}
@@ -292,14 +292,14 @@ void journal::operator()()
 			if (data->trim_zero(je->target_block * jm.block_size, jm.block_size, je->a == JA_trim, &err) == false) {
 				delete b;
 				journal_commit_fatal_error = true;
-				dolog(ll_error, "journal::operator: failed to trim/zero storage: %s", strerror(err));
+				dolog(ll_error, "journal::operator(%s): failed to trim/zero storage: %s", id.c_str(), strerror(err));
 				break;
 			}
 		}
 		else {
 			delete b;
 			journal_commit_fatal_error = true;
-			dolog(ll_error, "journal::operator: unknown action %d", je->a);
+			dolog(ll_error, "journal::operator(%s): unknown action %d", id.c_str(), je->a);
 			break;
 		}
 
@@ -315,7 +315,7 @@ void journal::operator()()
 		auto it = cache.find(je->target_block);
 		if (it == cache.end()) {
 			journal_commit_fatal_error = true;
-			dolog(ll_error, "journal::operator: block %lu not in RAM cache", je->target_block);
+			dolog(ll_error, "journal::operator(%s): block %lu not in RAM cache", id.c_str(), je->target_block);
 			delete b;
 			break;
 		}
@@ -323,7 +323,7 @@ void journal::operator()()
 		it->second.second--;
 
 		if (it->second.second == 0) {
-			dolog(ll_debug, "journal::operator: remove block %lu from RAM cache", je->target_block);
+			dolog(ll_debug, "journal::operator(%s): remove block %lu from RAM cache", id.c_str(), je->target_block);
 			cache.erase(je->target_block);
 		}
 
@@ -331,27 +331,27 @@ void journal::operator()()
 
 		if (update_journal_meta_data() == false) {
 			journal_commit_fatal_error = true;
-			dolog(ll_error, "journal::operator: failed to write journal meta-data to storage");
+			dolog(ll_error, "journal::operator(%s): failed to write journal meta-data to storage", id.c_str());
 			break;
 		}
 
 		// make sure journal is on disk
 		if (journal_->fsync() == false) {
 			journal_commit_fatal_error = true;
-			dolog(ll_error, "journal::operator: failed to sync journal to disk");
+			dolog(ll_error, "journal::operator(%s): failed to sync journal to disk", id.c_str());
 			break;
 		}
 
 		if (journal_->trim_zero((clean_element + 1) * target_size, target_size, true, &err) == false) {
 			journal_commit_fatal_error = true;
-			dolog(ll_error, "journal::operator: failed to clear journal entry");
+			dolog(ll_error, "journal::operator(%s): failed to clear journal entry", id.c_str());
 			break;
 		}
 
 		cond_pull.notify_all();
 	}
 
-	dolog(ll_info, "journal::operator: thread terminated with %lu items in journal", jm.cur_n);
+	dolog(ll_info, "journal::operator(%s): thread terminated with %lu items in journal", id.c_str(), jm.cur_n);
 }
 
 void journal::flush_journal()
@@ -361,7 +361,7 @@ void journal::flush_journal()
 	while(jm.cur_n > 0 && !stop_flag)
 		cond_pull.wait(lck);
 
-	dolog(ll_info, "journal::flush_journal: journal empty, terminating thread");
+	dolog(ll_info, "journal::flush_journal(%s): journal empty, terminating thread", id.c_str());
 
 	stop_flag = true;
 
@@ -384,7 +384,7 @@ bool journal::get_block(const block_nr_t block_nr, uint8_t **const data)
 	if (it != cache.end()) {
 		*data = reinterpret_cast<uint8_t *>(malloc(it->second.first.get_size()));
 		if (!*data)
-			dolog(ll_error, "journal::get_block: cannot allocate %zu bytes of memory", it->second.first.get_size());
+			dolog(ll_error, "journal::get_block(%s): cannot allocate %zu bytes of memory", id.c_str(), it->second.first.get_size());
 		else {
 			memcpy(*data, it->second.first.get_data(), it->second.first.get_size());
 			rc = true;
@@ -395,7 +395,7 @@ bool journal::get_block(const block_nr_t block_nr, uint8_t **const data)
 		this->data->get_data(block_nr * block_size, block_size, data, &err);
 
 		if (err)
-			dolog(ll_error, "journal::get_block: failed to retrieve block %ld from storage: %s", block_nr, strerror(errno));
+			dolog(ll_error, "journal::get_block(%s): failed to retrieve block %ld from storage: %s", id.c_str(), block_nr, strerror(errno));
 		else
 			rc = true;
 	}
@@ -409,7 +409,7 @@ bool journal::put_block(const block_nr_t block_nr, const uint8_t *const data)
 
 	if (push_action(JA_write, block_nr, b) == false)
 	{
-		dolog(ll_error, "journal::put_block: cannot write block %ld", block_nr);
+		dolog(ll_error, "journal::put_block(%s): cannot write block %ld", id.c_str(), block_nr);
 		return false;
 	}
 
@@ -450,7 +450,7 @@ bool journal::trim_zero(const offset_t offset, const uint32_t len, const bool tr
 
 			if (rc == false) {
 				*err = EIO;
-				dolog(ll_error, "journal::trim_zero: failed to %s block %ld", block_nr, trim ? "trim" : "zero");
+				dolog(ll_error, "journal::trim_zero(%s): failed to %s block %ld", id.c_str(), block_nr, trim ? "trim" : "zero");
 				break;
 			}
 		}
@@ -458,16 +458,16 @@ bool journal::trim_zero(const offset_t offset, const uint32_t len, const bool tr
 			uint8_t *temp = nullptr;
 
 			if (!get_block(block_nr, &temp)) {
-				dolog(ll_error, "journal::trim_zero: failed to retrieve block %ld", id.c_str(), block_nr);
-				*err = EINVAL;
+				dolog(ll_error, "journal::trim_zero(%s): failed to retrieve block %ld", id.c_str(), id.c_str(), block_nr);
+				*err = EIO;
 				break;
 			}
 
 			memset(&temp[block_offset], 0x00, current_size);
 
 			if (!put_block(block_nr, temp)) {
-				dolog(ll_error, "journal::trim_zero: failed to update block %ld", id.c_str(), block_nr);
-				*err = EINVAL;
+				dolog(ll_error, "journal::trim_zero(%s): failed to update block %ld", id.c_str(), id.c_str(), block_nr);
+				*err = EIO;
 				free(temp);
 				break;
 			}
@@ -484,7 +484,7 @@ bool journal::trim_zero(const offset_t offset, const uint32_t len, const bool tr
 	free(b0x00);
 
 	if (do_trim_zero(offset, len, trim) == false) {
-		dolog(ll_error, "journal::trim_zero: failed to send to mirror(s)", id.c_str());
+		dolog(ll_error, "journal::trim_zero(%s): failed to send to mirror(s)", id.c_str(), id.c_str());
 		return false;
 	}
 
