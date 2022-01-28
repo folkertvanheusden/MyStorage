@@ -272,9 +272,9 @@ void journal::operator()()
 			break;
 		}
 
-		dolog(ll_debug, "journal::operator(%s): storing block %lu", id.c_str(), je->target_block);
-
 		if (je->a == JA_write) {
+			dolog(ll_debug, "journal::operator(%s): writing block %lu", id.c_str(), je->target_block);
+
 			block b2(je->data, jm.block_size, false);
 
 			int err = 0;
@@ -288,6 +288,8 @@ void journal::operator()()
 			}
 		}
 		else if (je->a == JA_trim || je->a == JA_zero) {
+			dolog(ll_debug, "journal::operator(%s): %s block %lu", id.c_str(), je->a == JA_trim ? "trim" : "zero", je->target_block);
+
 			int err = 0;
 			if (data->trim_zero(je->target_block * jm.block_size, jm.block_size, je->a == JA_trim, &err) == false) {
 				delete b;
