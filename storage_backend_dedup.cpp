@@ -398,7 +398,10 @@ bool storage_backend_dedup::put_block(const block_nr_t block_nr, const uint8_t *
 
 bool storage_backend_dedup::fsync()
 {
-	// TODO
+	if (db.synchronize(true) == false) {
+		dolog(ll_error, "storage_backend_dedup::fsync(%s): failed to kyotocabinet store to disk", id.c_str());
+		return false;
+	}
 
 	if (do_sync_mirrors() == false) {
 		dolog(ll_error, "storage_backend_dedup::fsync(%s): failed to sync data to mirror(s)", id.c_str());
