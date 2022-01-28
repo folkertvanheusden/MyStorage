@@ -59,8 +59,10 @@ nbd::~nbd()
 	stop();
 
 	for(auto t : threads) {
-		t->join();
-		delete t;
+		t.first->join();
+
+		delete t.first;
+		delete t.second;
 	}
 
 	th->join();
@@ -174,7 +176,7 @@ std::optional<size_t> nbd::find_storage_backend_by_id(const std::string & id)
 	return { };
 }
 
-void nbd::handle_client(const int fd)
+void nbd::handle_client(const int fd, std::atomic_bool *const thread_stopped)
 {
 	nbd_state_t state = nbd_st_init;
 
@@ -451,6 +453,8 @@ void nbd::handle_client(const int fd)
 	close(fd);
 
 	dolog(ll_info, "nbd::handle_client: connection closed");
+
+	*thread_stopped = true;
 }
 
 void nbd::operator()()
@@ -465,13 +469,18 @@ void nbd::operator()()
 
 		dolog(ll_info, "nbd::operator(%s): connection made with %s", id.c_str(), get_endpoint_name(cfd).c_str());
 
-		std::thread *th = new std::thread([this, cfd] { this->handle_client(cfd); });
-		threads.push_back(th);
+		std::atomic_bool *flag = new std::atomic_bool(false);
+		std::thread *th = new std::thread([this, cfd, flag] { this->handle_client(cfd, flag); });
+
+		threads.push_back({ th, flag });
 
 		for(size_t i=0; i<threads.size();) {
-			if (threads.at(i)->joinable()) {
-				threads.at(i)->join();
-				delete threads.at(i);
+			if (*threads.at(i).second == true) {
+				threads.at(i).first->join();
+
+				delete threads.at(i).first;
+				delete threads.at(i).second;
+
 				threads.erase(threads.begin() + i);
 			}
 			else {
