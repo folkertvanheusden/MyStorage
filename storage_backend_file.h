@@ -13,13 +13,15 @@ private:
 	offset_t          size { 0 };
 	const std::string file;
 
+protected:
+	bool get_block(const block_nr_t block_nr, uint8_t **const data) override;
+	bool put_block(const block_nr_t block_nr, const uint8_t *const data) override;
+
 public:
-	storage_backend_file(const std::string & id, const std::string & file, const std::vector<mirror *> & mirrors);
+	storage_backend_file(const std::string & id, const std::string & file, const int block_size, const std::vector<mirror *> & mirrors);
 	virtual ~storage_backend_file();
 
 	offset_t get_size() const override;
-	void get_data(const offset_t offset, const uint32_t size, block **const b, int *const err) override;
-	void put_data(const offset_t offset, const block & b, int *const err) override;
 
 	bool fsync() override;
 

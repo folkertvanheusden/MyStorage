@@ -15,8 +15,7 @@ class storage_backend_dedup : public storage_backend
 private:
 	hash          *const h { nullptr };
 	offset_t             size { 0 };
-	const int            block_size { 0 };
-	lock_group           lg;
+	lock_group           lgdd;
 	kyotocabinet::PolyDB db;
 	const std::string    file;
 
@@ -45,8 +44,6 @@ public:
 	virtual ~storage_backend_dedup();
 
 	offset_t get_size() const override;
-	void get_data(const offset_t offset, const uint32_t size, block **const b, int *const err) override;
-	void put_data(const offset_t offset, const block & b, int *const err) override;
 
 	bool fsync() override;
 

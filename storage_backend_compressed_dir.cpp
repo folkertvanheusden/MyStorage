@@ -14,7 +14,7 @@
 #include "str.h"
 
 
-storage_backend_compressed_dir::storage_backend_compressed_dir(const std::string & id, const std::string & dir, const int block_size, const offset_t total_size, compresser *const c, const std::vector<mirror *> & mirrors) : storage_backend(id, mirrors), dir(dir), block_size(block_size), total_size(total_size), c(c)
+storage_backend_compressed_dir::storage_backend_compressed_dir(const std::string & id, const std::string & dir, const int block_size, const offset_t total_size, compresser *const c, const std::vector<mirror *> & mirrors) : storage_backend(id, block_size, mirrors), dir(dir), total_size(total_size), c(c)
 {
 	dir_structure = opendir(dir.c_str());
 	if (!dir_structure)
@@ -174,101 +174,6 @@ bool storage_backend_compressed_dir::put_block(const block_nr_t block_nr, const 
 	close(fd);
 
 	return true;
-}
-
-void storage_backend_compressed_dir::get_data(const offset_t offset, const uint32_t size, block **const b, int *const err)
-{
-	*err = 0;
-
-	lg.un_lock_block_group(offset, size, block_size, true, true);
-
-	uint8_t *out = nullptr;
-	uint32_t out_size = 0;
-
-	offset_t work_offset = offset;
-	uint32_t work_size = size;
-
-	while(work_size > 0) {
-		block_nr_t block_nr = work_offset / block_size;
-		uint32_t block_offset = work_offset % block_size;
-
-		uint32_t current_size = std::min(work_size, block_size - block_offset);
-
-		uint8_t *temp = nullptr;
-
-		if (!get_block(block_nr, &temp)) {
-			dolog(ll_error, "storage_backend_compressed_dir::get_data(%s): failed to retrieve block %ld", id.c_str(), block_nr);
-			*err = EINVAL;
-			free(out);
-			break;
-		}
-
-		out = reinterpret_cast<uint8_t *>(realloc(out, out_size + current_size));
-		memcpy(&out[out_size], &temp[block_offset], current_size);
-		out_size += current_size;
-
-		free(temp);
-
-		work_offset += current_size;
-		work_size -= current_size;
-	}
-
-	*b = new block(out, out_size);
-
-	lg.un_lock_block_group(offset, size, block_size, false, true);
-}
-
-void storage_backend_compressed_dir::put_data(const offset_t offset, const block & b, int *const err)
-{
-	*err = 0;
-
-	lg.un_lock_block_group(offset, b.get_size(), block_size, true, false);
-
-	offset_t work_offset = offset;
-
-	const uint8_t *input = b.get_data();
-	size_t work_size = b.get_size();
-
-	while(work_size > 0) {
-		block_nr_t block_nr = work_offset / block_size;
-		uint32_t block_offset = work_offset % block_size;
-
-		int current_size = std::min(work_size, size_t(block_size - block_offset));
-
-		uint8_t *temp = nullptr;
-
-		if (block_offset == 0 && current_size == block_size)
-			temp = reinterpret_cast<uint8_t *>(calloc(1, block_size));
-		else {
-			if (!get_block(block_nr, &temp)) {
-				dolog(ll_error, "storage_backend_compressed_dir::put_data(%s): failed to retrieve block %ld", id.c_str(), block_nr);
-				*err = EINVAL;
-				break;
-			}
-		}
-
-		memcpy(&temp[block_offset], input, current_size);
-
-		if (!put_block(block_nr, temp)) {
-			dolog(ll_error, "storage_backend_compressed_dir::put_data(%s): failed to update block %ld", id.c_str(), block_nr);
-			*err = EINVAL;
-			free(temp);
-			break;
-		}
-
-		free(temp);
-
-		work_offset += current_size;
-		work_size -= current_size;
-		input += current_size;
-	}
-
-	lg.un_lock_block_group(offset, b.get_size(), block_size, false, false);
-
-	if (do_mirror(offset, b) == false) {
-		*err = EIO;
-		dolog(ll_error, "storage_backend_compressed_dir::put_data(%s): failed to send block (%zu bytes) to mirror(s) at offset %lu", id.c_str(), b.get_size(), offset);
-	}
 }
 
 bool storage_backend_compressed_dir::fsync()

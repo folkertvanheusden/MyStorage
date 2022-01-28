@@ -17,7 +17,7 @@
 #include "str.h"
 
 
-storage_backend_dedup::storage_backend_dedup(const std::string & id, const std::string & file, hash *const h, const std::vector<mirror *> & mirrors, const offset_t size, const int block_size) : storage_backend(id, mirrors), h(h), size(size), block_size(block_size), file(file)
+storage_backend_dedup::storage_backend_dedup(const std::string & id, const std::string & file, hash *const h, const std::vector<mirror *> & mirrors, const offset_t size, const int block_size) : storage_backend(id, block_size, mirrors), h(h), size(size), file(file)
 {
 	if (db.open(myformat("%s#*", file.c_str()), kyotocabinet::PolyDB::OWRITER | kyotocabinet::PolyDB::OCREATE) == false)
 		throw myformat("storage_backend_dedup: failed to access DB-file \"%s\": %s", file.c_str(), db.error().message());
@@ -275,9 +275,17 @@ bool storage_backend_dedup::map_blocknr_to_hash(const block_nr_t block_nr, const
 
 bool storage_backend_dedup::put_block(const block_nr_t block_nr, const uint8_t *const data_in)
 {
+	const offset_t offset = block_nr * block_size;
+
+	lgdd.un_lock_block_group(offset, block_size, block_size, true, false);
+
+	// FIXME start_transaction
+
 	// get hash for block (get_hash_for_block())
 	auto cur_hash_for_blocknr = get_hash_for_block(block_nr);
 	if (cur_hash_for_blocknr.has_value() == false) {
+		lgdd.un_lock_block_group(offset, block_size, block_size, false, false);
+			// FIXME abort_transaction
 		dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to get hash for blocknr %ld", id.c_str(), block_nr);
 		return false;
 	}
@@ -287,6 +295,8 @@ bool storage_backend_dedup::put_block(const block_nr_t block_nr, const uint8_t *
 		// - decrease use count
 		int64_t new_use_count = 0;
 		if (decrease_use_count(cur_hash_for_blocknr.value(), &new_use_count) == false) {
+			lgdd.un_lock_block_group(offset, block_size, block_size, false, false);
+			// FIXME abort_transaction
 			dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to retrieve use-count for hash \"%s\"", id.c_str(), cur_hash_for_blocknr.value().c_str());
 			return false;
 		}
@@ -295,17 +305,23 @@ bool storage_backend_dedup::put_block(const block_nr_t block_nr, const uint8_t *
 		if (new_use_count == 0) {
 			// - delete block for that hash
 			if (delete_block_by_hash(cur_hash_for_blocknr.value()) == false) {
+				lgdd.un_lock_block_group(offset, block_size, block_size, false, false);
+			// FIXME abort_transaction
 				dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to delete block for hash \"%s\"", id.c_str(), cur_hash_for_blocknr.value().c_str());
 				return false;
 			}
 
 			// delete counter
 			if (delete_block_counter_by_hash(get_hashforblocknr_key_for_blocknr(block_nr)) == false) {
+				lgdd.un_lock_block_group(offset, block_size, block_size, false, false);
+			// FIXME abort_transaction
 				dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to delete counter for hash \"%s\"", id.c_str(), cur_hash_for_blocknr.value().c_str());
 				return false;
 			}
 		}
 		else if (new_use_count < 0) {
+			lgdd.un_lock_block_group(offset, block_size, block_size, false, false);
+			// FIXME abort_transaction
 			dolog(ll_error, "storage_backend_dedup::put_block(%s): new_use_count < 0! (%ld) dataset is corrupt!", id.c_str(), new_use_count);
 			return false;
 		}
@@ -314,12 +330,16 @@ bool storage_backend_dedup::put_block(const block_nr_t block_nr, const uint8_t *
 	// - calc hash over new-block
 	auto new_block_hash = h->do_hash(data_in, block_size);
 	if (!new_block_hash.has_value()) {
+		lgdd.un_lock_block_group(offset, block_size, block_size, false, false);
+			// FIXME abort_transaction
 		dolog(ll_error, "storage_backend_dedup::put_block(%s): cannot calculate hash", id.c_str());
 		return false;
 	}
 
 	int64_t new_block_use_count = 0;
 	if (get_use_count(new_block_hash.value(), &new_block_use_count) == false) {
+		lgdd.un_lock_block_group(offset, block_size, block_size, false, false);
+			// FIXME abort_transaction
 		dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to retrieve use-count for hash \"%s\"", id.c_str(), new_block_hash.value().c_str());
 		return false;
 	}
@@ -329,11 +349,15 @@ bool storage_backend_dedup::put_block(const block_nr_t block_nr, const uint8_t *
 		// - increase count for new-block-hash
 		int64_t temp = 0;
 		if (increase_use_count(new_block_hash.value(), &temp) == false) {
+			lgdd.un_lock_block_group(offset, block_size, block_size, false, false);
+			// FIXME abort_transaction
 			dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to increase use-count for data block with hash \"%s\"", id.c_str(), new_block_hash.value().c_str());
 			return false;
 		}
 
 		if (temp != new_block_use_count + 1) {
+			lgdd.un_lock_block_group(offset, block_size, block_size, false, false);
+			// FIXME abort_transaction
 			dolog(ll_error, "storage_backend_dedup::put_block(%s): new count (%ld) not as expected (%ld) hash \"%s\"", id.c_str(), temp, new_block_use_count + 1, new_block_hash.value().c_str());
 			return false;
 		}
@@ -342,12 +366,16 @@ bool storage_backend_dedup::put_block(const block_nr_t block_nr, const uint8_t *
 		// - count == 0:
 		//   - set count to 1
 		if (set_use_count(new_block_hash.value(), 1) == false) {
+			lgdd.un_lock_block_group(offset, block_size, block_size, false, false);
+			// FIXME abort_transaction
 			dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to set use-count for data block with hash \"%s\" to 1", id.c_str(), new_block_hash.value().c_str());
 			return false;
 		}
 
 		// - put block
 		if (put_key_value(get_data_key_for_hash(new_block_hash.value()), data_in, block_size) == false) {
+			lgdd.un_lock_block_group(offset, block_size, block_size, false, false);
+			// FIXME abort_transaction
 			dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to store data block with hash \"%s\"", id.c_str(), new_block_hash.value().c_str());
 			return false;
 		}
@@ -355,133 +383,17 @@ bool storage_backend_dedup::put_block(const block_nr_t block_nr, const uint8_t *
 
 	// - put mapping blocknr to new-block-hash
 	if (map_blocknr_to_hash(block_nr, new_block_hash.value()) == false) {
+		lgdd.un_lock_block_group(offset, block_size, block_size, false, false);
+		// FIXME abort_transaction
 		dolog(ll_error, "storage_backend_dedup::put_block(%s): failed to map blocknr %ld to hash \"%s\"", id.c_str(), block_nr, new_block_hash.value().c_str());
 		return false;
 	}
 
+	// FIXME commit_transaction
+
+	lgdd.un_lock_block_group(offset, block_size, block_size, false, false);
+
 	return true;
-}
-
-void storage_backend_dedup::un_lock_block_group(const offset_t offset, const uint32_t size, const bool do_lock, const bool shared)
-{
-	std::vector<uint64_t> block_nrs;
-
-	for(offset_t o=offset; o<offset + size; o += block_size)
-		block_nrs.push_back(o);
-
-	if (do_lock) {
-		if (shared)
-			lg.lock_shared(block_nrs);
-		else
-			lg.lock_private(block_nrs);
-	}
-	else {
-		if (shared)
-			lg.unlock_shared(block_nrs);
-		else
-			lg.unlock_private(block_nrs);
-	}
-}
-
-void storage_backend_dedup::get_data(const offset_t offset, const uint32_t size, block **const b, int *const err)
-{
-	*err = 0;
-	*b = nullptr;
-
-	un_lock_block_group(offset, size, true, true);
-
-	uint8_t *out = nullptr;
-	uint32_t out_size = 0;
-
-	offset_t work_offset = offset;
-	uint32_t work_size = size;
-
-	while(work_size > 0) {
-		block_nr_t block_nr = work_offset / block_size;
-		uint32_t block_offset = work_offset % block_size;
-
-		uint32_t current_size = std::min(work_size, block_size - block_offset);
-
-		uint8_t *temp = nullptr;
-
-		if (!get_block(block_nr, &temp)) {
-			dolog(ll_error, "storage_backend_dedup::get_data(%s): failed to retrieve block %ld", id.c_str(), block_nr);
-			*err = EINVAL;
-			free(out);
-			break;
-		}
-
-		out = reinterpret_cast<uint8_t *>(realloc(out, out_size + current_size));
-		memcpy(&out[out_size], &temp[block_offset], current_size);
-		out_size += current_size;
-
-		free(temp);
-
-		work_offset += current_size;
-		work_size -= current_size;
-	}
-
-	*b = new block(out, out_size);
-
-	un_lock_block_group(offset, size, false, true);
-}
-
-void storage_backend_dedup::put_data(const offset_t offset, const block & b, int *const err)
-{
-	*err = 0;
-
-	// TODO start transaction
-
-	un_lock_block_group(offset, size, true, false);
-
-	offset_t work_offset = offset;
-
-	const uint8_t *input = b.get_data();
-	size_t work_size = b.get_size();
-
-	while(work_size > 0) {
-		block_nr_t block_nr = work_offset / block_size;
-		uint32_t block_offset = work_offset % block_size;
-
-		int current_size = std::min(work_size, size_t(block_size - block_offset));
-
-		uint8_t *temp = nullptr;
-
-		if (block_offset == 0 && current_size == block_size)
-			temp = reinterpret_cast<uint8_t *>(calloc(1, block_size));
-		else {
-			if (!get_block(block_nr, &temp)) {
-				dolog(ll_error, "storage_backend_dedup::put_data(%s): failed to retrieve block %ld", id.c_str(), block_nr);
-				*err = EINVAL;
-				break;
-			}
-		}
-
-		memcpy(&temp[block_offset], input, current_size);
-
-		if (!put_block(block_nr, temp)) {
-			dolog(ll_error, "storage_backend_dedup::put_data(%s): failed to update block %ld", id.c_str(), block_nr);
-			*err = EINVAL;
-			free(temp);
-			break;
-		}
-
-		free(temp);
-
-		work_offset += current_size;
-		work_size -= current_size;
-		input += current_size;
-	}
-
-	un_lock_block_group(offset, size, false, false);
-
-	// TODO finish transaction
-
-	if (do_mirror(offset, b) == false) {
-		*err = EIO;
-		dolog(ll_error, "storage_backend_dedup::put_data(%s): failed to send block (%zu bytes) to mirror(s) at offset %lu", id.c_str(), size, offset);
-		return;
-	}
 }
 
 bool storage_backend_dedup::fsync()
@@ -500,7 +412,9 @@ bool storage_backend_dedup::trim_zero(const offset_t offset, const uint32_t len,
 {
 	*err = 0;
 
-	un_lock_block_group(offset, len, true, false);
+	uint8_t *b0x00 = reinterpret_cast<uint8_t *>(calloc(1, block_size));
+
+	lgdd.un_lock_block_group(offset, len, block_size, true, false);
 
 	offset_t work_offset = offset;
 	size_t work_size = len;
@@ -511,9 +425,8 @@ bool storage_backend_dedup::trim_zero(const offset_t offset, const uint32_t len,
 
 		int current_size = std::min(work_size, size_t(block_size - block_offset));
 
-		if (current_size == block_size) {
-			// TODO
-		}
+		if (current_size == block_size)
+			put_block(block_nr, b0x00);
 		else {
 			uint8_t *temp = nullptr;
 
@@ -539,7 +452,9 @@ bool storage_backend_dedup::trim_zero(const offset_t offset, const uint32_t len,
 		work_size -= current_size;
 	}
 
-	un_lock_block_group(offset, len, false, false);
+	lgdd.un_lock_block_group(offset, len, block_size, false, false);
+
+	free(b0x00);
 
 	if (do_trim_zero(offset, len, trim) == false) {
 		dolog(ll_error, "storage_backend_dedup::trim_zero(%s): failed to send to mirror(s)", id.c_str());

@@ -16,7 +16,7 @@
 #include "str.h"
 
 
-storage_backend_aoe::storage_backend_aoe(const std::string & id, const std::vector<mirror *> & mirrors, const std::string & dev_name, const uint8_t my_mac[6], const uint16_t major, const uint8_t minor, const int mtu_size) : storage_backend(id, mirrors), dev_name(dev_name), major(major), minor(minor)
+storage_backend_aoe::storage_backend_aoe(const std::string & id, const std::vector<mirror *> & mirrors, const std::string & dev_name, const uint8_t my_mac[6], const uint16_t major, const uint8_t minor, const int mtu_size, const int block_size) : storage_backend(id, block_size, mirrors), dev_name(dev_name), major(major), minor(minor)
 {
 	memcpy(this->my_mac, my_mac, 6);
 
@@ -46,6 +46,7 @@ YAML::Node storage_backend_aoe::emit_configuration() const
 	out_cfg["minor"] = minor;
 	out_cfg["mtu-size"] = connection.mtu_size;
 	out_cfg["my-mac"] = myformat("%02x:%02x:%02x:%02x:%02x:%02x", my_mac[0], my_mac[1], my_mac[2], my_mac[3], my_mac[4], my_mac[5]);;
+	out_cfg["block-size"] = block_size;
 
 	YAML::Node out;
 	out["type"] = "storage-backend-aoe";
@@ -69,6 +70,7 @@ storage_backend_aoe * storage_backend_aoe::load_configuration(const YAML::Node &
 	uint16_t major = cfg["major"].as<uint16_t>();
 	uint8_t minor = cfg["minor"].as<uint8_t>();
 	int mtu_size = cfg["mtu-size"].as<int>();
+	int block_size = cfg["block-size"].as<int>();
 
 	std::string mac = cfg["my-mac"].as<std::string>();
 
@@ -78,7 +80,7 @@ storage_backend_aoe * storage_backend_aoe::load_configuration(const YAML::Node &
 		return nullptr;
 	}
 
-	return new storage_backend_aoe(name, mirrors, dev_name, my_mac, major, minor, mtu_size);
+	return new storage_backend_aoe(name, mirrors, dev_name, my_mac, major, minor, mtu_size, block_size);
 }
 
 typedef enum { ACS_discover, ACS_discover_sent, ACS_identify, ACS_identify_sent, ACS_running, ACS_end } aoe_connect_state_t;
@@ -314,38 +316,17 @@ offset_t storage_backend_aoe::get_size() const
 	return 0;
 }
 
-void storage_backend_aoe::get_data(const offset_t offset, const uint32_t size, block **const b, int *const err)
+bool storage_backend_aoe::get_block(const block_nr_t block_nr, uint8_t **const data)
 {
-	*err = 0;
-
-	if (offset & 511) {
-		dolog(ll_warning, "storage_backend_aoe::get_data(%s): offset must be multiple of 512 bytes (1 sector)", id.c_str());
-		*err = EIO;
-		return;
+	*data = reinterpret_cast<uint8_t *>(malloc(block_size));
+	if (!*data) {
+		dolog(ll_error, "storage_backend_aoe::get_block(%s): cannot allocate %d bytes of memory", id.c_str(), block_size);
+		return false;
 	}
 
-	if (size & 511) {
-		dolog(ll_warning, "storage_backend_aoe::get_data(%s): size must be multiple of 512 bytes (1 sector)", id.c_str());
-		*err = EIO;
-		return;
-	}
-
-	if (size == 0) {
-		dolog(ll_warning, "storage_backend_aoe::get_data(%s): size must be > 0", id.c_str());
-		*err = EIO;
-		return;
-	}
-
-	uint8_t *const buffer = reinterpret_cast<uint8_t *>(malloc(size));
-	if (!buffer) {
-		dolog(ll_error, "storage_backend_aoe::get_data(%s): cannot allocate %zu bytes of memory", id.c_str(), size);
-		*err = ENOMEM;
-		return;
-	}
-
-	offset_t work_offset  = offset;
-	uint32_t work_size    = size;
-	uint8_t  *work_buffer = buffer;
+	block_nr_t work_block_nr = block_nr;
+	uint32_t work_size       = block_size;
+	uint8_t  *work_buffer    = *data;
 
 	aoe_ata_t aa { 0 };
 
@@ -366,18 +347,19 @@ void storage_backend_aoe::get_data(const offset_t offset, const uint32_t size, b
 	uint8_t recv_buffer[65536] { 0 };
 	const aoe_ata_t *const aa_rb = reinterpret_cast<const aoe_ata_t *>(recv_buffer);
 
+	int err = 0;
+
 	while(work_size > 0) {
 		aa.aeh.tag = rand();
 
-		uint64_t sector = work_offset / 512;
-		aa.lba[0] = sector;
-		aa.lba[1] = sector >> 8;
-		aa.lba[2] = sector >> 16;
-		aa.lba[3] = sector >> 24;
-		aa.lba[4] = sector >> 32;
-		aa.lba[5] = sector >> 40;
+		aa.lba[0] = work_block_nr;
+		aa.lba[1] = work_block_nr >> 8;
+		aa.lba[2] = work_block_nr >> 16;
+		aa.lba[3] = work_block_nr >> 24;
+		aa.lba[4] = work_block_nr >> 32;
+		aa.lba[5] = work_block_nr >> 40;
 
-		if (do_ata_command(&aa, sizeof aa, recv_buffer, sizeof recv_buffer, err) == false) {
+		if (do_ata_command(&aa, sizeof aa, recv_buffer, sizeof recv_buffer, &err) == false) {
 			dolog(ll_error, "storage_backend_aoe::get_data(%s): device refused ATAPI command", id.c_str());
 			break;
 		}
@@ -386,44 +368,24 @@ void storage_backend_aoe::get_data(const offset_t offset, const uint32_t size, b
 		memcpy(work_buffer, aa_rb->data, 512);
 
 		work_size -= 512;
-		work_offset += 512;
+		work_block_nr++;
 		work_buffer += 512;
 	}
 
-	if (*err)
-		free(buffer);
-	else {
-		assert(work_buffer - buffer == size);
+	if (err)
+		free(*data);
+	else
+		assert(work_buffer - *data == block_size);
 
-		*b = new block(buffer, size);
-	}
+	return err == 0;
 }
 
-void storage_backend_aoe::put_data(const offset_t offset, const block & b, int *const err)
+bool storage_backend_aoe::put_block(const block_nr_t block_nr, const uint8_t *const data)
 {
-	*err = 0;
-
-	if (offset & 511) {
-		dolog(ll_warning, "storage_backend_aoe::put_data(%s): offset must be multiple of 512 bytes (1 sector)", id.c_str());
-		*err = EIO;
-		return;
-	}
-
-	if (b.get_size() & 511) {
-		dolog(ll_warning, "storage_backend_aoe::put_data(%s): size must be multiple of 512 bytes (1 sector)", id.c_str());
-		*err = EIO;
-		return;
-	}
-
-	if (b.get_size() == 0) {
-		dolog(ll_warning, "storage_backend_aoe::put_data(%s): size must be > 0", id.c_str());
-		*err = EIO;
-		return;
-	}
-
-	offset_t work_offset       = offset;
-	uint32_t work_size         = b.get_size();
-	const uint8_t *work_buffer = b.get_data();
+	int err = 0;
+	block_nr_t work_block_nr   = block_nr;
+	uint32_t work_size         = block_size;
+	const uint8_t *work_buffer = data;
 
 	const size_t send_size = sizeof(aoe_ata_t) + 512;
 	aoe_ata_t *aa = reinterpret_cast<aoe_ata_t *>(calloc(1, send_size));
@@ -447,33 +409,28 @@ void storage_backend_aoe::put_data(const offset_t offset, const block & b, int *
 	while(work_size > 0) {
 		aa->aeh.tag = rand();
 
-		uint64_t sector = work_offset / 512;
-		aa->lba[0] = sector;
-		aa->lba[1] = sector >> 8;
-		aa->lba[2] = sector >> 16;
-		aa->lba[3] = sector >> 24;
-		aa->lba[4] = sector >> 32;
-		aa->lba[5] = sector >> 40;
+		aa->lba[0] = work_block_nr;
+		aa->lba[1] = work_block_nr >> 8;
+		aa->lba[2] = work_block_nr >> 16;
+		aa->lba[3] = work_block_nr >> 24;
+		aa->lba[4] = work_block_nr >> 32;
+		aa->lba[5] = work_block_nr >> 40;
 
 		memcpy(aa->data, work_buffer, 512);
 
-		if (do_ata_command(aa, send_size, recv_buffer, sizeof recv_buffer, err) == false) {
-			dolog(ll_debug, "storage_backend_aoe::put_data(%s): device refused ATAPI command", id.c_str());
+		if (do_ata_command(aa, send_size, recv_buffer, sizeof recv_buffer, &err) == false) {
+			dolog(ll_debug, "storage_backend_aoe::put_block(%s): device refused ATAPI command", id.c_str());
 			break;
 		}
 
 		work_size -= 512;
-		work_offset += 512;
+		work_block_nr++;
 		work_buffer += 512;
 	}
 
 	free(aa);
 
-	if (do_mirror(offset, b) == false) {
-		*err = EIO;
-		dolog(ll_error, "storage_backend_aoe::put_data(%s): failed to send block (%zu bytes) to mirror(s) at offset %lu", id.c_str(), b.get_size(), offset);
-		return;
-	}
+	return err == 0;
 }
 
 bool storage_backend_aoe::fsync()

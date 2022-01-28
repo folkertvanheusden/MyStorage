@@ -24,9 +24,44 @@ add_executable(mystorage
 	hash.cpp
 	hash_sha384.cpp
 	io.cpp
+	journal.cpp
 	lock_group.cpp
 	logging.cpp
 	main.cpp
+	mirror.cpp
+	mirror_storage_backend.cpp
+	nbd.cpp
+	net.cpp
+	socket_client.cpp
+	socket_client_ipv4.cpp
+	socket_client_ipv6.cpp
+	socket_listener.cpp
+	socket_listener_ipv4.cpp
+	storage_backend.cpp
+	storage_backend_aoe.cpp
+	storage_backend_compressed_dir.cpp
+	storage_backend_file.cpp
+	storage_backend_dedup.cpp
+	str.cpp
+	time.cpp
+	)
+
+add_executable(test-mystorage
+	aoe.cpp
+	aoe-generic.cpp
+	base.cpp
+	block.cpp
+	compresser.cpp
+	compresser_lzo.cpp
+	compresser_zlib.cpp
+	error.cpp
+	hash.cpp
+	hash_sha384.cpp
+	io.cpp
+	journal.cpp
+	lock_group.cpp
+	logging.cpp
+	test.cpp
 	mirror.cpp
 	mirror_storage_backend.cpp
 	nbd.cpp
@@ -56,23 +91,38 @@ pkg_check_modules(ZLIB REQUIRED zlib)
 target_link_libraries(mystorage ${ZLIB_LIBRARIES})
 target_include_directories(mystorage PUBLIC ${ZLIB_INCLUDE_DIRS})
 target_compile_options(mystorage PUBLIC ${ZLIB_CFLAGS_OTHER})
+target_link_libraries(test-mystorage ${ZLIB_LIBRARIES})
+target_include_directories(test-mystorage PUBLIC ${ZLIB_INCLUDE_DIRS})
+target_compile_options(test-mystorage PUBLIC ${ZLIB_CFLAGS_OTHER})
 
 pkg_check_modules(LZO2 REQUIRED lzo2)
 target_link_libraries(mystorage ${LZO2_LIBRARIES})
 target_include_directories(mystorage PUBLIC ${LZO2_INCLUDE_DIRS})
 target_compile_options(mystorage PUBLIC ${LZO2_CFLAGS_OTHER})
+target_link_libraries(test-mystorage ${LZO2_LIBRARIES})
+target_include_directories(test-mystorage PUBLIC ${LZO2_INCLUDE_DIRS})
+target_compile_options(test-mystorage PUBLIC ${LZO2_CFLAGS_OTHER})
 
 pkg_check_modules(CRYPTOPP REQUIRED libcrypto++)
 target_link_libraries(mystorage ${CRYPTOPP_LIBRARIES})
 target_include_directories(mystorage PUBLIC ${CRYPTOPP_INCLUDE_DIRS})
 target_compile_options(mystorage PUBLIC ${CRYPTOPP_CFLAGS_OTHER})
+target_link_libraries(test-mystorage ${CRYPTOPP_LIBRARIES})
+target_include_directories(test-mystorage PUBLIC ${CRYPTOPP_INCLUDE_DIRS})
+target_compile_options(test-mystorage PUBLIC ${CRYPTOPP_CFLAGS_OTHER})
 
 pkg_check_modules(KC REQUIRED kyotocabinet)
 target_link_libraries(mystorage ${KC_LIBRARIES})
 target_include_directories(mystorage PUBLIC ${KC_INCLUDE_DIRS})
 target_compile_options(mystorage PUBLIC ${KC_CFLAGS_OTHER})
+target_link_libraries(test-mystorage ${KC_LIBRARIES})
+target_include_directories(test-mystorage PUBLIC ${KC_INCLUDE_DIRS})
+target_compile_options(test-mystorage PUBLIC ${KC_CFLAGS_OTHER})
 
 pkg_check_modules(YAML REQUIRED yaml-cpp)
 target_link_libraries(mystorage ${YAML_LIBRARIES})
 target_include_directories(mystorage PUBLIC ${YAML_INCLUDE_DIRS})
 target_compile_options(mystorage PUBLIC ${YAML_CFLAGS_OTHER})
+target_link_libraries(test-mystorage ${YAML_LIBRARIES})
+target_include_directories(test-mystorage PUBLIC ${YAML_INCLUDE_DIRS})
+target_compile_options(test-mystorage PUBLIC ${YAML_CFLAGS_OTHER})

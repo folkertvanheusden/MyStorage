@@ -12,7 +12,7 @@
 #include "str.h"
 
 
-storage_backend_file::storage_backend_file(const std::string & id, const std::string & file, const std::vector<mirror *> & mirrors) : storage_backend(id, mirrors), file(file)
+storage_backend_file::storage_backend_file(const std::string & id, const std::string & file, const int block_size, const std::vector<mirror *> & mirrors) : storage_backend(id, block_size, mirrors), file(file)
 {
 	fd = open(file.c_str(), O_RDWR);
 	if (fd == -1)
@@ -50,8 +50,9 @@ storage_backend_file * storage_backend_file::load_configuration(const YAML::Node
 		mirrors.push_back(mirror::load_configuration(it->as<YAML::Node>()));
 
 	std::string file = cfg["file"].as<std::string>();
+	int block_size = cfg["block-size"].as<int>();
 
-	return new storage_backend_file(id, file, mirrors);
+	return new storage_backend_file(id, file, block_size, mirrors);
 }
 
 YAML::Node storage_backend_file::emit_configuration() const
@@ -64,6 +65,7 @@ YAML::Node storage_backend_file::emit_configuration() const
 	out_cfg["id"] = id;
 	out_cfg["file"] = file;
 	out_cfg["mirrors"] = out_mirrors;
+	out_cfg["block-size"] = block_size;
 
 	YAML::Node out;
 	out["type"] = "storage-backend-file";
@@ -77,64 +79,44 @@ offset_t storage_backend_file::get_size() const
 	return size;
 }
 
-void storage_backend_file::get_data(const offset_t offset, const uint32_t size, block **const b, int *const err)
+bool storage_backend_file::get_block(const block_nr_t block_nr, uint8_t **const data)
 {
-	*err = 0;
-	*b = nullptr;
-
-	if (size == 0) {
-		*err = EINVAL;
-		dolog(ll_error, "storage_backend_file::get_data(%s): requesting block of 0 bytes in size", id.c_str());
-		return;
-	}
-
+	const offset_t offset = block_nr * block_size;
 	if (lseek(fd, offset, SEEK_SET) == -1) {
-		*err = errno;
-		dolog(ll_error, "storage_backend_file::get_data(%s): failed to seek in file to offset %ld", id.c_str(), offset);
-		return;
+		dolog(ll_error, "storage_backend_file::get_block(%s): failed to seek in file to offset %ld", id.c_str(), offset);
+		return false;
 	}
 
-	uint8_t *buffer = static_cast<uint8_t *>(malloc(size));
-	if (!buffer) {
-		*err = ENOMEM;
-		dolog(ll_error, "storage_backend_file::get_data(%s): cannot allocated %u bytes of memory", id.c_str(), size);
-		return;
+	*data = static_cast<uint8_t *>(malloc(block_size));
+	if (!*data) {
+		dolog(ll_error, "storage_backend_file::get_block(%s): cannot allocated %u bytes of memory", id.c_str(), size);
+		return false;
 	}
 
-	if (READ(fd, buffer, size) != size) {
-		*err = errno;
-		free(buffer);
-		dolog(ll_error, "storage_backend_file::get_data(%s): failed to read from file", id.c_str());
-		return;
+	int rc = READ(fd, *data, block_size);
+	if (rc != block_size) {
+		free(*data);
+		dolog(ll_error, "storage_backend_file::get_block(%s): failed to read from file at offset %ld: expected %d, got %d", id.c_str(), offset, block_size, rc);
+		return false;
 	}
 
-	*b = new block(buffer, size);
+	return true;
 }
 
-void storage_backend_file::put_data(const offset_t offset, const block & b, int *const err)
+bool storage_backend_file::put_block(const block_nr_t block_nr, const uint8_t *const data)
 {
-	const uint8_t *p = b.get_data();
-	const ssize_t len = b.get_size();
-
-	*err = 0;
-
+	const offset_t offset = block_nr * block_size;
 	if (lseek(fd, offset, SEEK_SET) == -1) {
-		*err = errno;
-		dolog(ll_error, "storage_backend_file::put_data(%s): failed to seek in file to offset %ld", id.c_str(), offset);
-		return;
+		dolog(ll_error, "storage_backend_file::put_block(%s): failed to seek in file to offset %ld", id.c_str(), offset);
+		return false;
 	}
 
-	if (WRITE(fd, p, len) != len) {
-		*err = errno;
-		dolog(ll_error, "storage_backend_file::put_data(%s): failed to write (%zu bytes) to file at offset %lu", id.c_str(), len, offset);
-		return;
+	if (WRITE(fd, data, block_size) != block_size) {
+		dolog(ll_error, "storage_backend_file::put_block(%s): failed to write (%zu bytes) to file at offset %lu", id.c_str(), block_size, offset);
+		return false;
 	}
 
-	if (do_mirror(offset, b) == false) {
-		*err = EIO;
-		dolog(ll_error, "storage_backend_file::put_data(%s): failed to send block (%zu bytes) to mirror(s) at offset %lu", id.c_str(), len, offset);
-		return;
-	}
+	return true;
 }
 
 bool storage_backend_file::fsync()
