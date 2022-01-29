@@ -29,7 +29,7 @@ journal::journal(const std::string & id, storage_backend *const data, storage_ba
 		dolog(ll_info, "journal(%s): new journal", id.c_str());
 
 		jm.block_size = block_size;
-		jm.n_elements = (journal_->get_size() - block_size) / (sizeof(journal_element_t) + block_size);
+		jm.n_elements = (journal_->get_size() - (block_size + sizeof(journal_element_t))) / (sizeof(journal_element_t) + block_size);
 		memcpy(jm.sig, journal_signature, sizeof jm.sig);
 	}
 	else {
@@ -200,10 +200,10 @@ bool journal::push_action(const journal_action_t a, const block_nr_t block_nr, c
 
 	// store element in journal
 	int err = 0;
-	journal_->put_data((jm.write_pointer + 1) * target_size, b, &err);
+	journal_->put_data(offset_t(jm.write_pointer + 1) * target_size, b, &err);
 
 	if (err) {
-		dolog(ll_error, "journal::push_action(%s): failed to write journal element: %s", id.c_str(), strerror(err));
+		dolog(ll_error, "journal::push_action(%s): failed to write journal element (%d bytes in size) %d: %s", id.c_str(), target_size, jm.write_pointer, strerror(err));
 		return false;
 	}
 
@@ -214,6 +214,11 @@ bool journal::push_action(const journal_action_t a, const block_nr_t block_nr, c
 	jm.full = jm.write_pointer == jm.read_pointer;
 
 	jm.cur_n++;
+
+	if (jm.cur_n > jm.n_elements) {
+		dolog(ll_error, "journal::push_action(%s): more (%d) elements in journal than it can contain (%d)", id.c_str(), jm.cur_n, jm.n_elements);
+		return false;
+	}
 
 	put_in_cache(reinterpret_cast<journal_element_t *>(j_element));
 
