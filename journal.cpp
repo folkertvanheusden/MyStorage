@@ -124,7 +124,7 @@ bool journal::update_journal_meta_data()
 	if (meta_dirty == 0)
 		return true;
 
-	dolog(ll_debug, "journal::update_journal_meta_data(%s): cached %d write(s)", id.c_str(), meta_dirty);
+	dolog(ll_debug, "journal::update_journal_meta_data(%s): prevented %d write(s)", id.c_str(), meta_dirty);
 
 	constexpr int crc_offset = sizeof(uint32_t);
 	jm.crc = calc_crc(reinterpret_cast<const uint8_t *>(&jm) + crc_offset, sizeof(journal_meta_t) - crc_offset);
@@ -271,6 +271,8 @@ void journal::operator()()
 {
 	dolog(ll_info, "journal::operator(%s): thread started", id.c_str());
 
+	time_t last_write = 0;
+
 	while(!stop_flag) {
 		std::unique_lock<std::mutex> lck(lock);
 
@@ -281,6 +283,13 @@ void journal::operator()()
 			dolog(ll_debug, "journal::operator(%s): thread terminating", id.c_str());
 			break;
 		}
+
+		// try to group
+		time_t now = time(nullptr);
+		if (now - last_write < 5 && jm.cur_n < jm.n_elements / 8)
+			continue;
+
+		last_write = now;
 
 		// retrieve action from journal
 		const size_t target_size = sizeof(journal_element_t) + jm.block_size;
@@ -396,6 +405,8 @@ void journal::operator()()
 void journal::flush_journal()
 {
 	std::unique_lock<std::mutex> lck(lock);
+
+	// TODO trigger operator() to not wait for interval, but just write the blocks
 
 	while(jm.cur_n > 0 && !stop_flag)
 		cond_pull.wait(lck);
