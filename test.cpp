@@ -39,7 +39,7 @@ void test_journal()
 		const std::string test_data_file = "test/data.dat";
 		const std::string test_journal_file = "test/journal.dat";
 
-		constexpr offset_t data_size = 16 * 1024 * 1024;
+		constexpr offset_t data_size = 4 * 1024 * 1024;
 		constexpr int block_size = 4096;
 
 		constexpr uint64_t put_n = data_size / block_size;
@@ -87,7 +87,7 @@ void test_journal()
 		}
 
 		// concurrency test
-		dolog(ll_info, " * 001 concurrency");
+		dolog(ll_info, " * 002 concurrency");
 		{
 			uint64_t start = get_us();
 			journal *j = new journal("journal", &sbf_data, &sbf_journal);
@@ -132,6 +132,57 @@ void test_journal()
 			delete j;
 
 			dolog(ll_info, "gets: %ld, puts: %ld", get_count, put_count);
+		}
+
+		// concurrency test for trim
+		dolog(ll_info, " * 003 concurrencent trim & write");
+		{
+			journal *j = new journal("journal", &sbf_data, &sbf_journal);
+
+			std::atomic_bool stop = false;
+
+			std::thread t([j, &stop] {
+					uint8_t *data = reinterpret_cast<uint8_t *>(calloc(1, block_size));
+					block b(data, block_size);
+
+					while(!stop) {
+						uint64_t i = rand() % put_n;
+
+						*reinterpret_cast<uint64_t *>(data) = i;
+
+						int err = 0;
+						j->put_data(i * block_size, b, &err);
+						assert(err == 0);
+					}
+				});
+
+			std::thread t2([j, &stop] {
+					while(!stop) {
+						uint64_t i = rand() % put_n;
+
+						block *b = nullptr;
+
+						int err = 0;
+						j->get_data(i * block_size, block_size, &b, &err);
+						assert(err == 0);
+
+						const uint64_t v = *reinterpret_cast<const uint64_t *>(b->get_data());
+						assert(v == 0 || v == i);
+
+						delete b;
+					}
+				});
+
+			// trim
+			int err = 0;
+			j->trim_zero(0, data_size, true, &err);
+			assert(err == 0);
+
+			stop = true;
+			t2.join();
+			t.join();
+
+			delete j;
 		}
 
 		os_assert(unlink(test_journal_file.c_str()));
