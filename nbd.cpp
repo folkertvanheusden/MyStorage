@@ -26,6 +26,7 @@
 #define NBD_FLAG_SEND_TRIM      (1 << 5)
 #define NBD_FLAG_SEND_WRITE_ZEROES (1 << 6)
 
+#define NBD_INFO_BLOCK_SIZE	3
 #define NBD_INFO_EXPORT		0
 
 #define NBD_OPT_EXPORT_NAME	1
@@ -43,6 +44,15 @@ nbd::nbd(socket_listener *const sl, const std::vector<storage_backend *> & stora
 {
 	if (storage_backends.empty())
 		throw "nbd: backends list is empty";
+
+	for(auto sb : storage_backends) {
+		if (maximum_transaction_size == -1)
+			maximum_transaction_size = sb->get_maximum_transaction_size();
+		else
+			maximum_transaction_size = std::min(maximum_transaction_size, sb->get_maximum_transaction_size());
+	}
+
+	dolog(ll_info, "nbd(%s): maximum transaction size: %d bytes", id.c_str(), maximum_transaction_size);
 
 	sl->acquire(this);
 
@@ -282,13 +292,25 @@ void nbd::handle_client(const int fd, std::atomic_bool *const thread_stopped)
 
 						current_sb = sel_sb.value();
 
-						std::vector<uint8_t> msg;
-						add_uint16(msg, NBD_INFO_EXPORT);
-						add_uint64(msg, storage_backends.at(current_sb)->get_size());
-						add_uint16(msg, NBD_FLAG_SEND_FLUSH | NBD_FLAG_SEND_TRIM | NBD_FLAG_SEND_WRITE_ZEROES | NBD_FLAG_CAN_MULTI_CONN);
+						std::vector<uint8_t> msg_flags;
+						add_uint16(msg_flags, NBD_INFO_EXPORT);
+						add_uint64(msg_flags, storage_backends.at(current_sb)->get_size());
+						add_uint16(msg_flags, NBD_FLAG_SEND_FLUSH | NBD_FLAG_SEND_TRIM | NBD_FLAG_SEND_WRITE_ZEROES | NBD_FLAG_CAN_MULTI_CONN);
 
-						if (send_option_reply(fd, option.value(), NBD_REP_INFO, msg) == false) {
-							dolog(ll_info, "nbd::handle_client: failed transmitting NBD_REP_INFO");
+						if (send_option_reply(fd, option.value(), NBD_REP_INFO, msg_flags) == false) {
+							dolog(ll_info, "nbd::handle_client: failed transmitting NBD_REP_INFO/NBD_INFO_EXPORT");
+							state = nbd_st_terminate;
+							break;
+						}
+
+						std::vector<uint8_t> msg_block_sizes;
+						add_uint16(msg_block_sizes, NBD_INFO_BLOCK_SIZE);
+						add_uint32(msg_flags, 512);  // minium block size
+						add_uint32(msg_flags, 4096);  // preferred TODO: find most common from storage backends?
+						add_uint32(msg_flags, maximum_transaction_size);  // maximum block size
+
+						if (send_option_reply(fd, option.value(), NBD_REP_INFO, msg_block_sizes) == false) {
+							dolog(ll_info, "nbd::handle_client: failed transmitting NBD_REP_INFO/NBD_INFO_BLOCK_SIZE");
 							state = nbd_st_terminate;
 							break;
 						}

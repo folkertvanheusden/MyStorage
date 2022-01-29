@@ -32,6 +32,7 @@ public:
 
 	virtual offset_t get_size() const = 0;
 	int get_block_size() const;
+	virtual int get_maximum_transaction_size() const;
 
 	void get_data(const offset_t offset, const uint32_t size, uint8_t **const d, int *const err);
 	void get_data(const offset_t offset, const uint32_t size, block **const b, int *const err);

@@ -12,10 +12,10 @@
 class nbd : public base
 {
 private:
-	socket_listener *const sl;
+	socket_listener               *const sl;
 	const std::vector<storage_backend *> storage_backends;
-
-	std::thread *th { nullptr };
+	int                                  maximum_transaction_size { -1 };
+	std::thread                         *th { nullptr };
 
 	std::vector<std::pair<std::thread *, std::atomic_bool *> > threads;
 

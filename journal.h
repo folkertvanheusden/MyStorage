@@ -68,6 +68,8 @@ public:
 
 	offset_t get_size() const override;
 
+	int get_maximum_transaction_size() const override;
+
 	bool trim_zero(const offset_t offset, const uint32_t len, const bool trim, int *const err) override;
 
 	void flush_journal();

@@ -210,3 +210,8 @@ void storage_backend::put_data(const offset_t offset, const block & b, int *cons
 		dolog(ll_error, "storage_backend::put_data(%s): failed to send block (%zu bytes) to mirror(s) at offset %lu", id.c_str(), b.get_size(), offset);
 	}
 }
+
+int storage_backend::get_maximum_transaction_size() const
+{
+	return 1 << 31;
+}

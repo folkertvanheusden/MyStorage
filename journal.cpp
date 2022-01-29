@@ -98,6 +98,11 @@ journal::~journal()
 	}
 }
 
+int journal::get_maximum_transaction_size() const
+{
+	return std::max(1ul, jm.n_elements * 3 / 4) * jm.block_size;
+}
+
 // 'lock' must be locked
 bool journal::update_journal_meta_data()
 {

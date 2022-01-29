@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
 			yaml_file = optarg;
 	}
 
-	setlog("mystorage.log", ll_info, ll_info);  // TODO add to configuration file
+	setlog("mystorage.log", ll_debug, ll_debug);  // TODO add to configuration file
 	dolog(ll_info, "MyStorage starting");
 
 	signal(SIGTERM, sigh);
