@@ -154,30 +154,32 @@ bool journal::put_in_cache(const journal_element_t *const je)
 {
 	dolog(ll_debug, "journal::put_in_cache(%s): put element %ld in cache", id.c_str(), je->target_block);
 
-	uint8_t *data = reinterpret_cast<uint8_t *>(calloc(1, jm.block_size));
-	if (!data) {
-		dolog(ll_error, "journal::put_in_cache(%s): cannot allocate %zu bytes of memory", id.c_str(), jm.block_size);
-		return false;
-	}
+	auto it = cache.find(je->target_block);
+	if (it == cache.end()) {
+		uint8_t *data = reinterpret_cast<uint8_t *>(calloc(1, jm.block_size));
+		if (!data) {
+			dolog(ll_error, "journal::put_in_cache(%s): cannot allocate %zu bytes of memory", id.c_str(), jm.block_size);
+			return false;
+		}
 
-	if (je->a == JA_write)
-		memcpy(data, je->data, jm.block_size);
-	else if (je->a == JA_trim || je->a == JA_zero) {
-		// calloc takes care of this
+		if (je->a == JA_write)
+			memcpy(data, je->data, jm.block_size);
+		else if (je->a == JA_trim || je->a == JA_zero) {
+			// calloc takes care of this
+		}
+		else {
+			dolog(ll_error, "journal::put_in_cache(%s): unknown action %d", id.c_str(), je->a);
+			free(data);
+			return false;
+		}
+
+		block b(data, jm.block_size);
+
+		cache.insert({ je->target_block, { b, 1 } });
 	}
 	else {
-		dolog(ll_error, "journal::put_in_cache(%s): unknown action %d", id.c_str(), je->a);
-		free(data);
-		return false;
-	}
-
-	block b(data, jm.block_size);
-
-	auto it = cache.find(je->target_block);
-	if (it == cache.end())
-		cache.insert({ je->target_block, { b, 1 } });
-	else
 		it->second.second++;
+	}
 
 	return true;
 }
