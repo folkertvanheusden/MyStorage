@@ -84,6 +84,7 @@ set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads)
 target_link_libraries(mystorage Threads::Threads)
+target_link_libraries(test-mystorage Threads::Threads)
 
 include(FindPkgConfig)
 
