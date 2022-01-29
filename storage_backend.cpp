@@ -5,6 +5,7 @@
 #include "storage_backend_dedup.h"
 #include "storage_backend_file.h"
 #include "str.h"
+#include "types.h"
 
 
 storage_backend::storage_backend(const std::string & id, const int block_size, const std::vector<mirror *> & mirrors) : base(id), block_size(block_size), mirrors(mirrors)
@@ -177,7 +178,7 @@ void storage_backend::put_data(const offset_t offset, const block & b, int *cons
 		uint8_t *temp = nullptr;
 
 		if (block_offset == 0 && current_size == block_size)
-			temp = reinterpret_cast<uint8_t *>(calloc(1, block_size));
+			temp = reinterpret_cast<uint8_t *>(malloc(block_size));
 		else {
 			if (!get_block(block_nr, &temp)) {
 				dolog(ll_error, "storage_backend::put_data(%s): failed to retrieve block %ld", id.c_str(), block_nr);
