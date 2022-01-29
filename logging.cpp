@@ -85,8 +85,12 @@ void DOLOG(const log_level_t ll, const char *fmt, ...)
 	(void)vasprintf(&str, fmt, ap);
 	va_end(ap);
 
-	if (ll >= log_level_file)
+	if (ll >= log_level_file) {
 		fprintf(lfh, "%s%s\n", ts_str, str);
+
+		if (ll >= ll_warning)
+			fflush(lfh);
+	}
 
 	if (ll >= log_level_screen)
 		printf("%s%s\n", ts_str, str);

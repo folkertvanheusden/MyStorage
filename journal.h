@@ -21,7 +21,7 @@ typedef struct
 	bool       full;
 } journal_meta_t;
 
-typedef enum { JA_write, JA_trim, JA_zero } journal_action_t;
+typedef enum { JA_write = 1, JA_trim, JA_zero } journal_action_t;
 
 // multiple of sizeof(journal_element_t) + block_size => journal_size
 typedef struct
@@ -39,6 +39,7 @@ private:
 	storage_backend *const journal_;
 
 	journal_meta_t         jm { 0 };
+	int                    meta_dirty { 0 };
 
 	std::mutex             lock;
 	std::condition_variable_any cond_pull;
@@ -53,8 +54,14 @@ private:
 	std::thread           *th { nullptr };
 
 	bool update_journal_meta_data();
+
 	bool put_in_cache(const journal_element_t *const je);
 	bool push_action(const journal_action_t a, const block_nr_t block_nr, const block & data);
+
+	bool transaction_start() override;
+	bool transaction_end() override;
+
+	void dump(const journal_element_t*);
 
 protected:
         bool get_block(const block_nr_t block_nr, uint8_t **const data) override;

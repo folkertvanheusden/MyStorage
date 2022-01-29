@@ -81,23 +81,28 @@ int main(int argc, char *argv[])
 			yaml_file = optarg;
 	}
 
-	setlog("mystorage.log", ll_debug, ll_debug);  // TODO add to configuration file
+	setlog("mystorage.log", ll_debug, ll_info);  // TODO add to configuration file
 	dolog(ll_info, "MyStorage starting");
 
 	signal(SIGTERM, sigh);
 	signal(SIGINT, sigh);
 
-	auto servers = load_configuration(yaml_file);
+	try {
+		auto servers = load_configuration(yaml_file);
 
-	dolog(ll_info, "MyStorage running");
+		dolog(ll_info, "MyStorage running");
 
-	for(;!stop_flag;)
-		pause();
+		for(;!stop_flag;)
+			pause();
 
-	dolog(ll_info, "MyStorage terminating");
+		dolog(ll_info, "MyStorage terminating");
 
-	for(auto s : servers)
-		delete s;
+		for(auto s : servers)
+			delete s;
+	}
+	catch(const std::string & err) {
+		dolog(ll_error, "main: caught exception \"%s\"", err.c_str());
+	}
 
 	fflush(nullptr);
 	sync();

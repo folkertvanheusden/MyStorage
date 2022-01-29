@@ -26,12 +26,17 @@ protected:
         virtual bool get_block(const block_nr_t block_nr, uint8_t **const data) = 0;
         virtual bool put_block(const block_nr_t block_nr, const uint8_t *const data) = 0;
 
+	// used by put_data
+	virtual bool transaction_start();
+	virtual bool transaction_end();
+
 public:
 	storage_backend(const std::string & id, const int block_size, const std::vector<mirror *> & mirrors);
 	virtual ~storage_backend();
 
 	virtual offset_t get_size() const = 0;
 	int get_block_size() const;
+
 	virtual int get_maximum_transaction_size() const;
 
 	void get_data(const offset_t offset, const uint32_t size, uint8_t **const d, int *const err);

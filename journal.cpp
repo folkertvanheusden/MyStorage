@@ -45,9 +45,6 @@ journal::journal(const std::string & id, storage_backend *const data, storage_ba
 	if (jm.n_elements == 0)
 		throw myformat("journal(%s): journal of 0 elements in size?", id.c_str());
 
-	if (jm.block_size != journal_->get_block_size())
-		throw myformat("journal(%s): mismatch between the block sizes of the journal storage and the journal dump file", id.c_str());
-
 	dolog(ll_info, "journal(%s): %lu elements total, number filled: %lu", id.c_str(), jm.n_elements, jm.cur_n);
 
 	// load journal in cache
@@ -70,8 +67,9 @@ journal::journal(const std::string & id, storage_backend *const data, storage_ba
 		uint32_t crc = calc_crc(b->get_data() + crc_offset, b->get_size() - crc_offset);
 
 		if (crc != je->crc) {
-			delete b;
 			dolog(ll_error, "journal(%s): CRC mismatch (expecting: %08x, retrieved: %08x)", id.c_str(), je->crc, crc);
+			dump(je);
+			delete b;
 			break;
 		}
 
@@ -103,9 +101,31 @@ int journal::get_maximum_transaction_size() const
 	return std::max(1ul, jm.n_elements * 3 / 4) * jm.block_size;
 }
 
+bool journal::transaction_start()
+{
+	return true;
+}
+
+bool journal::transaction_end()
+{
+	std::unique_lock<std::mutex> lck(lock);
+
+	if (update_journal_meta_data() == false) {
+		dolog(ll_error, "journal::push_action(%s): failed to write journal meta-data to disk", id.c_str());
+		return false;
+	}
+
+	return true;
+}
+
 // 'lock' must be locked
 bool journal::update_journal_meta_data()
 {
+	if (meta_dirty == 0)
+		return true;
+
+	dolog(ll_debug, "journal::update_journal_meta_data(%s): cached %d write(s)", id.c_str(), meta_dirty);
+
 	constexpr int crc_offset = sizeof(uint32_t);
 	jm.crc = calc_crc(reinterpret_cast<const uint8_t *>(&jm) + crc_offset, sizeof(journal_meta_t) - crc_offset);
 
@@ -117,6 +137,14 @@ bool journal::update_journal_meta_data()
 		dolog(ll_error, "journal::update_journal_meta_data(%s): failed to update journal meta: %s", id.c_str(), strerror(err));
 		return false;
 	}
+
+	// make sure journal is on disk
+	if (journal_->fsync() == false) {
+		dolog(ll_error, "journal::update_journal_meta_data(%s): failed to sync journal to disk", id.c_str());
+		return false;
+	}
+
+	meta_dirty = 0;
 
 	return true;
 }
@@ -220,6 +248,8 @@ bool journal::push_action(const journal_action_t a, const block_nr_t block_nr, c
 
 	jm.cur_n++;
 
+	meta_dirty++;
+
 	if (jm.cur_n > jm.n_elements) {
 		dolog(ll_error, "journal::push_action(%s): more (%d) elements in journal than it can contain (%d)", id.c_str(), jm.cur_n, jm.n_elements);
 		return false;
@@ -227,20 +257,14 @@ bool journal::push_action(const journal_action_t a, const block_nr_t block_nr, c
 
 	put_in_cache(reinterpret_cast<journal_element_t *>(j_element));
 
-	if (update_journal_meta_data() == false) {
-		dolog(ll_error, "journal::push_action(%s): failed to write journal meta-data to disk", id.c_str());
-		return false;
-	}
-
-	// make sure journal is on disk
-	if (journal_->fsync() == false) {
-		dolog(ll_error, "journal::push_action(%s): failed to sync journal to disk", id.c_str());
-		return false;
-	}
-
 	cond_push.notify_all();
 
 	return true;
+}
+
+void journal::dump(const journal_element_t *const je)
+{
+	dolog(ll_warning, "CRC: %08x, action: %d, target block: %ld, dump: %s", je->crc, je->a, je->target_block, bin_to_text(je->data, 16).c_str());
 }
 
 void journal::operator()()
@@ -276,9 +300,10 @@ void journal::operator()()
 		uint32_t crc = calc_crc(b->get_data() + crc_offset, b->get_size() - crc_offset);
 
 		if (crc != je->crc) {
-			delete b;
 			journal_commit_fatal_error = true;
 			dolog(ll_error, "journal::operator(%s): CRC mismatch (expecting: %08x, retrieved: %08x)", id.c_str(), je->crc, crc);
+			dump(je);
+			delete b;
 			break;
 		}
 
@@ -323,6 +348,8 @@ void journal::operator()()
 		jm.full = 0;
 
 		jm.cur_n--;
+
+		meta_dirty++;
 
 		auto it = cache.find(je->target_block);
 		if (it == cache.end()) {

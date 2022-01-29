@@ -162,6 +162,12 @@ void storage_backend::put_data(const offset_t offset, const block & b, int *cons
 {
 	*err = 0;
 
+	if (transaction_start() == false) {
+		dolog(ll_error, "storage_backend::put_data(%s): failed to start transaction", id.c_str());
+		*err = EINVAL;
+		return;
+	}
+
 	lg.un_lock_block_group(offset, b.get_size(), block_size, true, false);
 
 	offset_t work_offset = offset;
@@ -203,9 +209,14 @@ void storage_backend::put_data(const offset_t offset, const block & b, int *cons
 		input += current_size;
 	}
 
+	if (transaction_end() == false) {
+		dolog(ll_error, "storage_backend::put_data(%s): failed to end transaction", id.c_str());
+		*err = EINVAL;
+	}
+
 	lg.un_lock_block_group(offset, b.get_size(), block_size, false, false);
 
-	if (do_mirror(offset, b) == false) {
+	if (*err == 0 && do_mirror(offset, b) == false) {
 		*err = EIO;
 		dolog(ll_error, "storage_backend::put_data(%s): failed to send block (%zu bytes) to mirror(s) at offset %lu", id.c_str(), b.get_size(), offset);
 	}
@@ -214,4 +225,14 @@ void storage_backend::put_data(const offset_t offset, const block & b, int *cons
 int storage_backend::get_maximum_transaction_size() const
 {
 	return 1 << 31;
+}
+
+bool storage_backend::transaction_start()
+{
+	return true;
+}
+
+bool storage_backend::transaction_end()
+{
+	return true;
 }
