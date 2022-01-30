@@ -6,9 +6,10 @@
 #include "journal.h"
 #include "logging.h"
 #include "str.h"
+#include "time.h"
 
 
-journal::journal(const std::string & id, storage_backend *const data, storage_backend *const journal_, const int flush_interval) : storage_backend(id, data->get_block_size(), { }), data(data), journal_(journal_), flush_interval(flush_interval)
+journal::journal(const std::string & id, storage_backend *const data, storage_backend *const journal_, const unsigned int flush_interval) : storage_backend(id, data->get_block_size(), { }), data(data), journal_(journal_), flush_interval(flush_interval)
 {
 	// retrieve journal meta data from storage
 	block *b = nullptr;
@@ -278,7 +279,7 @@ void journal::operator()()
 {
 	dolog(ll_info, "journal::operator(%s): thread started", id.c_str());
 
-	time_t last_write = 0;
+	uint64_t last_write = 0;
 
 	while(!stop_flag && !journal_commit_fatal_error) {
 		std::unique_lock<std::mutex> lck(lock);
@@ -292,7 +293,7 @@ void journal::operator()()
 		}
 
 		// try to group
-		time_t now = time(nullptr);
+		uint64_t now = get_ms();
 		if (now - last_write < flush_interval && jm.cur_n < jm.n_elements / 8)
 			continue;
 

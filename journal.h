@@ -52,7 +52,7 @@ private:
 	std::atomic_bool       journal_commit_fatal_error { false };
 
 	std::thread           *th { nullptr };
-	const int              flush_interval { 5 };
+	const unsigned int     flush_interval { 5000 };
 
 	bool update_journal_meta_data();
 
@@ -69,7 +69,7 @@ protected:
         bool put_block(const block_nr_t block_nr, const uint8_t *const data) override;
 
 public:
-	journal(const std::string & id, storage_backend *const data, storage_backend *const journal_, const int flush_interval);
+	journal(const std::string & id, storage_backend *const data, storage_backend *const journal_, const unsigned int flush_interval);
 	virtual ~journal();
 
 	bool fsync() override;
