@@ -19,6 +19,7 @@
 #define NBD_CMD_TRIM		4
 #define NBD_CMD_WRITE		1
 #define NBD_CMD_WRITE_ZEROES	6
+constexpr const char *const nbd_cmd_names[] = { "read", "write", "flush", "trim", "?5?", "zero" };
 
 #define NBD_FLAG_CAN_MULTI_CONN 8
 #define NBD_FLAG_C_NO_ZEROES    (1 << 1)
@@ -377,7 +378,7 @@ void nbd::handle_client(const int fd, std::atomic_bool *const thread_stopped)
 				}
 			}
 
-			dolog(ll_debug, "nbd::handle_client: command, flags: %x, type: %d, offset: %lu, length: %u", flags.value(), type.value(), offset.value(), length.value());
+			dolog(ll_debug, "nbd::handle_client: command, flags: %x, type: %s (%d), offset: %lu, length: %u", flags.value(), nbd_cmd_names[type.value()], type.value(), offset.value(), length.value());  // TODO length of nbd_cmd_names array indexing check
 
 			std::vector<uint8_t> reply;
 			block *b = nullptr;
