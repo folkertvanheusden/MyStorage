@@ -33,6 +33,7 @@ constexpr const char *const nbd_cmd_names[] = { "read", "write", "flush", "trim"
 
 #define NBD_OPT_EXPORT_NAME	1
 #define NBD_OPT_GO		7
+#define NBD_OPT_STRUCTURED_REPLY 8
 
 #define NBD_REP_ACK             1
 #define NBD_REP_ERR_UNSUP	(1 | NBD_REP_FLAG_ERROR)
@@ -331,6 +332,7 @@ void nbd::handle_client(const int fd, std::atomic_bool *const thread_stopped)
 
 				default:
 					dolog(ll_info, "nbd::handle_client: unknown option %d", option.value());
+					send_option_reply(fd, option.value(), NBD_REP_ERR_UNSUP, { });
 					break;
 			}
 		}
