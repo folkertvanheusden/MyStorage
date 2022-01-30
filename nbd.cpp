@@ -22,6 +22,7 @@
 constexpr const char *const nbd_cmd_names[] = { "read", "write", "flush", "trim", "?5?", "zero" };
 
 #define NBD_FLAG_CAN_MULTI_CONN 8
+#define NBD_FLAG_C_FIXED_NEWSTYLE (1 << 0)
 #define NBD_FLAG_C_NO_ZEROES    (1 << 1)
 #define NBD_FLAG_SEND_FLUSH	(1 << 2)
 #define NBD_FLAG_SEND_TRIM      (1 << 5)
@@ -201,7 +202,7 @@ void nbd::handle_client(const int fd, std::atomic_bool *const thread_stopped)
 			std::vector<uint8_t> msg;
 			add_uint64(msg, 0x4e42444d41474943);  // 'NBDMAGIC'
 			add_uint64(msg, 0x49484156454F5054);  // 'IHAVEOPT'
-			add_uint16(msg, 0x0000);              // handshake flags;
+			add_uint16(msg, NBD_FLAG_C_NO_ZEROES | NBD_FLAG_C_FIXED_NEWSTYLE);  // handshake flags;
 			if (WRITE(fd, msg.data(), msg.size()) != ssize_t(msg.size())) {
 				dolog(ll_info, "nbd::handle_client: transmission failed");
 				break;
