@@ -21,10 +21,14 @@
 #define NBD_CMD_WRITE_ZEROES	6
 constexpr const char *const nbd_cmd_names[] = { "read", "write", "flush", "trim", "?5?", "zero" };
 
+#define NBD_CMD_FLAG_FUA	(1 << 0)
+
 #define NBD_FLAG_CAN_MULTI_CONN 8
 #define NBD_FLAG_C_FIXED_NEWSTYLE (1 << 0)
 #define NBD_FLAG_C_NO_ZEROES    (1 << 1)
+#define NBD_FLAG_HAS_FLAGS      (1 << 0);
 #define NBD_FLAG_SEND_FLUSH	(1 << 2)
+#define NBD_FLAG_SEND_FUA	(1 << 3)
 #define NBD_FLAG_SEND_TRIM      (1 << 5)
 #define NBD_FLAG_SEND_WRITE_ZEROES (1 << 6)
 
@@ -300,7 +304,7 @@ void nbd::handle_client(const int fd, std::atomic_bool *const thread_stopped)
 						std::vector<uint8_t> msg_flags;
 						add_uint16(msg_flags, NBD_INFO_EXPORT);
 						add_uint64(msg_flags, storage_backends.at(current_sb)->get_size());
-						add_uint16(msg_flags, NBD_FLAG_SEND_FLUSH | NBD_FLAG_SEND_TRIM | NBD_FLAG_SEND_WRITE_ZEROES | NBD_FLAG_CAN_MULTI_CONN);
+						add_uint16(msg_flags, NBD_FLAG_SEND_FLUSH | NBD_FLAG_SEND_FUA | NBD_FLAG_SEND_TRIM | NBD_FLAG_SEND_WRITE_ZEROES | NBD_FLAG_CAN_MULTI_CONN);
 
 						if (send_option_reply(fd, option.value(), NBD_REP_INFO, msg_flags) == false) {
 							dolog(ll_info, "nbd::handle_client: failed transmitting NBD_REP_INFO/NBD_INFO_EXPORT");
@@ -308,6 +312,7 @@ void nbd::handle_client(const int fd, std::atomic_bool *const thread_stopped)
 							break;
 						}
 
+#if 0
 						std::vector<uint8_t> msg_block_sizes;
 						add_uint16(msg_block_sizes, NBD_INFO_BLOCK_SIZE);
 						add_uint32(msg_flags, 512);  // minium block size
@@ -319,6 +324,7 @@ void nbd::handle_client(const int fd, std::atomic_bool *const thread_stopped)
 							state = nbd_st_terminate;
 							break;
 						}
+#endif
 
 						if (send_option_reply(fd, option.value(), NBD_REP_ACK, { }) == false) {
 							state = nbd_st_terminate;
@@ -474,6 +480,14 @@ void nbd::handle_client(const int fd, std::atomic_bool *const thread_stopped)
 					dolog(ll_info, "nbd::handle_client: unknown command %d", type.value());
 					state = nbd_st_terminate;
 					break;
+			}
+
+			if ((flags.value() & NBD_CMD_FLAG_FUA) && state != nbd_st_terminate) {
+				if (storage_backends.at(current_sb)->fsync() == false) {
+					dolog(ll_info, "nbd::handle_client: NBD_CMD_FLAG_FUA failed"); 
+					err = EIO;
+					state = nbd_st_terminate;
+				}
 			}
 		}
 	}
