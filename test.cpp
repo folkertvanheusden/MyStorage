@@ -39,13 +39,13 @@ void test_journal()
 		const std::string test_data_file = "test/data.dat";
 		const std::string test_journal_file = "test/journal.dat";
 
-		constexpr offset_t data_size = 4 * 1024 * 1024;
+		constexpr offset_t data_size = 32l * 1024l * 1024l;
 		constexpr int block_size = 4096;
 
 		constexpr uint64_t put_n = data_size / block_size;
 
 		make_file(test_data_file.c_str(), data_size);  // 1GB data file
-		make_file(test_journal_file.c_str(), 512 * 1024);  // 512kB journal file, 4 kB header
+		make_file(test_journal_file.c_str(), 1024 * 1024);  // 1MB journal file, 4 kB header
 
 		// test if what goes in, goes out
 		dolog(ll_info, " * 001 smoke test");
@@ -135,7 +135,7 @@ void test_journal()
 		}
 
 		// concurrency test for trim
-		dolog(ll_info, " * 003 concurrencent trim & write");
+		dolog(ll_info, " * 003 concurrent trim & write");
 		{
 			journal *j = new journal("journal", &sbf_data, &sbf_journal);
 

@@ -21,7 +21,7 @@ typedef struct
 	bool       full;
 } journal_meta_t;
 
-typedef enum { JA_write = 1, JA_trim, JA_zero } journal_action_t;
+typedef enum { JA_invalid = 0, JA_write = 1, JA_trim, JA_zero } journal_action_t;
 
 // multiple of sizeof(journal_element_t) + block_size => journal_size
 typedef struct
