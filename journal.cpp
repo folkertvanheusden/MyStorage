@@ -8,7 +8,7 @@
 #include "str.h"
 
 
-journal::journal(const std::string & id, storage_backend *const data, storage_backend *const journal_) : storage_backend(id, data->get_block_size(), { }), data(data), journal_(journal_)
+journal::journal(const std::string & id, storage_backend *const data, storage_backend *const journal_, const int flush_interval) : storage_backend(id, data->get_block_size(), { }), data(data), journal_(journal_), flush_interval(flush_interval)
 {
 	// retrieve journal meta data from storage
 	block *b = nullptr;
@@ -293,7 +293,7 @@ void journal::operator()()
 
 		// try to group
 		time_t now = time(nullptr);
-		if (now - last_write < 5 && jm.cur_n < jm.n_elements / 8)
+		if (now - last_write < flush_interval && jm.cur_n < jm.n_elements / 8)
 			continue;
 
 		last_write = now;
@@ -604,6 +604,7 @@ YAML::Node journal::emit_configuration() const
 	out_cfg["id"] = id;
 	out_cfg["storage-backend_data"] = data->emit_configuration();
 	out_cfg["storage-backend_journal"] = journal_->emit_configuration();
+	out_cfg["flush-interval"] = flush_interval;
 
 	YAML::Node out;
 	out["type"] = "journal";
@@ -621,5 +622,7 @@ journal * journal::load_configuration(const YAML::Node & node)
 	storage_backend *sb_data = storage_backend::load_configuration(cfg["storage-backend_data"]);
 	storage_backend *sb_journal = storage_backend::load_configuration(cfg["storage-backend_journal"]);
 
-	return new journal(id, sb_data, sb_journal);
+	int flush_interval = cfg["flush-interval"].as<int>();
+
+	return new journal(id, sb_data, sb_journal, flush_interval);
 }

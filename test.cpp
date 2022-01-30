@@ -53,7 +53,7 @@ void test_journal()
 		storage_backend_file sbf_journal("journal", test_journal_file, block_size, { });
 
 		{
-			journal *j = new journal("journal", &sbf_data, &sbf_journal);
+			journal *j = new journal("journal", &sbf_data, &sbf_journal, 5);
 			uint8_t *data = reinterpret_cast<uint8_t *>(calloc(1, block_size));
 			block b(data, block_size);
 
@@ -69,7 +69,7 @@ void test_journal()
 		}
 
 		{
-			journal *j = new journal("journal", &sbf_data, &sbf_journal);
+			journal *j = new journal("journal", &sbf_data, &sbf_journal, 5);
 			j->flush_journal();
 			delete j;
 		}
@@ -90,7 +90,7 @@ void test_journal()
 		dolog(ll_info, " * 002 concurrency");
 		{
 			uint64_t start = get_us();
-			journal *j = new journal("journal", &sbf_data, &sbf_journal);
+			journal *j = new journal("journal", &sbf_data, &sbf_journal, 5);
 
 			uint64_t put_count = 0, get_count = 0;
 
@@ -137,7 +137,7 @@ void test_journal()
 		// concurrency test for trim
 		dolog(ll_info, " * 003 concurrent trim & write");
 		{
-			journal *j = new journal("journal", &sbf_data, &sbf_journal);
+			journal *j = new journal("journal", &sbf_data, &sbf_journal, 5);
 
 			std::atomic_bool stop = false;
 
