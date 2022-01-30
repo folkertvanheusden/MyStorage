@@ -216,8 +216,10 @@ void nbd::handle_client(const int fd, std::atomic_bool *const thread_stopped)
 				break;
 			}
 
-			if (client_flags.value() & NBD_FLAG_C_NO_ZEROES)
+			if (client_flags.value() & NBD_FLAG_C_NO_ZEROES) {
 				use_0x00_padding = false;
+				dolog(ll_debug, "nbd::handle_client: 0x00 padding disabled");
+			}
 
 			state = nbd_st_options;
 		}
