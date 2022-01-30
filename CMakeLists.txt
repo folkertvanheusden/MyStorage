@@ -37,6 +37,7 @@ add_executable(mystorage
 	socket_client_ipv6.cpp
 	socket_listener.cpp
 	socket_listener_ipv4.cpp
+	socket_listener_unixdomain.cpp
 	storage_backend.cpp
 	storage_backend_aoe.cpp
 	storage_backend_compressed_dir.cpp
@@ -71,6 +72,7 @@ add_executable(test-mystorage
 	socket_client_ipv6.cpp
 	socket_listener.cpp
 	socket_listener_ipv4.cpp
+	socket_listener_unixdomain.cpp
 	storage_backend.cpp
 	storage_backend_aoe.cpp
 	storage_backend_compressed_dir.cpp
