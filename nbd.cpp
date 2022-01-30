@@ -31,6 +31,7 @@ constexpr const char *const nbd_cmd_names[] = { "read", "write", "flush", "trim"
 #define NBD_FLAG_SEND_FUA	(1 << 3)
 #define NBD_FLAG_SEND_TRIM      (1 << 5)
 #define NBD_FLAG_SEND_WRITE_ZEROES (1 << 6)
+#define NBD_FLAG_CAN_MULTI_CONN	(1 << 8)
 
 #define NBD_INFO_BLOCK_SIZE	3
 #define NBD_INFO_EXPORT		0
@@ -304,7 +305,7 @@ void nbd::handle_client(const int fd, std::atomic_bool *const thread_stopped)
 						std::vector<uint8_t> msg_flags;
 						add_uint16(msg_flags, NBD_INFO_EXPORT);
 						add_uint64(msg_flags, storage_backends.at(current_sb)->get_size());
-						add_uint16(msg_flags, NBD_FLAG_SEND_FLUSH | NBD_FLAG_SEND_FUA | NBD_FLAG_SEND_TRIM | NBD_FLAG_SEND_WRITE_ZEROES | NBD_FLAG_CAN_MULTI_CONN);
+						add_uint16(msg_flags, NBD_FLAG_SEND_FLUSH | NBD_FLAG_SEND_FUA | NBD_FLAG_SEND_TRIM | NBD_FLAG_CAN_MULTI_CONN | NBD_FLAG_SEND_WRITE_ZEROES | NBD_FLAG_CAN_MULTI_CONN);
 
 						if (send_option_reply(fd, option.value(), NBD_REP_INFO, msg_flags) == false) {
 							dolog(ll_info, "nbd::handle_client: failed transmitting NBD_REP_INFO/NBD_INFO_EXPORT");
