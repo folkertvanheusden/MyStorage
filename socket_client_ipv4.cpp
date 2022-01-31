@@ -22,6 +22,29 @@ socket_client_ipv4::~socket_client_ipv4()
 {
 }
 
+socket_client_ipv4 * socket_client_ipv4::load_configuration(const YAML::Node & node)
+{
+	const YAML::Node cfg = node["cfg"];
+
+	std::string hostname = cfg["hostname"].as<std::string>();
+	int port = cfg["port"].as<int>();
+
+	return new socket_client_ipv4(hostname, port);
+}
+
+YAML::Node socket_client_ipv4::emit_configuration() const
+{
+	YAML::Node out_cfg;
+	out_cfg["hostname"] = hostname;
+	out_cfg["port"] = port;
+
+	YAML::Node out;
+	out["type"] = "socket-client-ipv4";
+	out["cfg"] = out_cfg;
+
+	return out;
+}
+
 int socket_client_ipv4::connect()
 {
 	if (fd != -1) {
