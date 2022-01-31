@@ -11,6 +11,9 @@ The 'examples'-directory contains some sample configuration files.
 They are in yaml-format.
 
 
+NOTE: this software is very young, it may still have bugs that can e.g. corrupt data.
+
+
 required packages
 -----------------
 
