@@ -5,7 +5,7 @@
 
 
 #if defined(CRYPTOPP_NO_GLOBAL_BYTE)
-	using CryptoPP::byte;
+	typedef unsigned char byte;
 #endif
 
 hash_sha384::hash_sha384()
@@ -40,7 +40,7 @@ void hash_sha384::do_hash(const uint8_t *const in, const size_t len, uint8_t **c
 	*out = reinterpret_cast<uint8_t *>(malloc(size));
 
 	if (out)
-		CryptoPP::SHA3_384().CalculateDigest(reinterpret_cast<CryptoPP::byte *>(*out), in, len);
+		CryptoPP::SHA3_384().CalculateDigest(reinterpret_cast<byte *>(*out), in, len);
 	else
 		dolog(ll_error, "hash_sha384::do_hash: cannot allocate %d bytes of memory", size);
 }
