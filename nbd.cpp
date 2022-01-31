@@ -15,13 +15,14 @@
 #include "str.h"
 
 
+#define NBD_CMD_READ		0
+#define NBD_CMD_WRITE		1
 #define NBD_CMD_DISC		2
 #define NBD_CMD_FLUSH 		3
-#define NBD_CMD_READ		0
 #define NBD_CMD_TRIM		4
-#define NBD_CMD_WRITE		1
+#define NBD_CMD_CACHE		5
 #define NBD_CMD_WRITE_ZEROES	6
-constexpr const char *const nbd_cmd_names[] = { "read", "write", "flush", "trim", "?5?", "zero" };
+constexpr const char *const nbd_cmd_names[] = { "read", "write", "disc", "flush", "trim", "cache", "zero", "status", "resize" };
 
 #define NBD_CMD_FLAG_FUA	(1 << 0)
 
@@ -381,7 +382,7 @@ void nbd::handle_client(const int fd, std::atomic_bool *const thread_stopped)
 		else if (state == nbd_st_transmission) {
 			auto magic = receive_uint32(fd);
 			if (!magic.has_value() || magic.value() != 0x25609513) {
-				dolog(ll_info, "nbd::handle_client: receive fail (magic)", magic.has_value() ? magic.value() : -1);
+				dolog(ll_info, "nbd::handle_client: receive fail (magic (%08x))", magic.has_value() ? magic.value() : -1);
 				break;
 			}
 
