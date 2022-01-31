@@ -9,14 +9,51 @@
 #include <unistd.h>
 
 #include "logging.h"
+#include "str.h"
 #include "time.h"
 
 
-static const char *logfile = strdup("/tmp/myip.log");
+const char *logfile = strdup("/tmp/myip.log");
 log_level_t log_level_file = ll_warning;
 log_level_t log_level_screen = ll_warning;
 static FILE *lfh = nullptr;
 static int lf_uid = 0, lf_gid = 0;
+
+std::string ll_to_str(const log_level_t ll)
+{
+	if (ll == ll_debug)
+		return "debug";
+
+	if (ll == ll_info)
+		return "info";
+
+	if (ll == ll_warning)
+		return "warning";
+
+	if (ll == ll_error)
+		return "error";
+
+	dolog(ll_warning, "ll_to_str: log level %d is unknown", ll);
+
+	return "debug";
+}
+
+log_level_t str_to_ll(const std::string & name)
+{
+	if (name == "debug")
+		return ll_debug;
+
+	if (name == "info")
+		return ll_info;
+
+	if (name == "warning")
+		return ll_warning;
+
+	if (name == "error")
+		return ll_error;
+
+	throw myformat("str_to_ll: \"%s\" is not recognized as a log-level", name.c_str());
+}
 
 void setlog(const char *lf, const log_level_t ll_file, const log_level_t ll_screen)
 {

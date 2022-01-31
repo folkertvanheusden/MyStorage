@@ -41,6 +41,13 @@ void store_configuration(const std::vector<server *> & servers, const std::vecto
 
 	out["storage"] = y_storage;
 
+	YAML::Node logging;
+	logging["file"] = logfile;
+	logging["loglevel-files"] = ll_to_str(log_level_file);
+	logging["loglevel-screen"] = ll_to_str(log_level_screen);
+
+	out["logging"] = logging;
+
 	YAML::Emitter output;
 	output << out;
 
@@ -81,6 +88,14 @@ std::pair<std::vector<server *>, std::vector<storage_backend *> > load_configura
 
 		servers.push_back(server::load_configuration(node, storage));
 	}
+
+	YAML::Node cfg_logging = config["logging"];
+	const std::string logfile = cfg_logging["file"].as<std::string>();
+
+	log_level_t ll_file = str_to_ll(cfg_logging["loglevel-files"].as<std::string>());
+	log_level_t ll_screen = str_to_ll(cfg_logging["loglevel-screen"].as<std::string>());
+
+	setlog(logfile.c_str(), ll_file, ll_screen);
 
 	return { servers, storage };
 }
