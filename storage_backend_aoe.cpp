@@ -283,7 +283,7 @@ bool storage_backend_aoe::connect() const
 					connection.size = get_idi_value(&parameters[100], 6 / 2) * 512;
 				}
 				else {
-					connection.size = parameters[1] * parameters[3] * parameters[4] * parameters[5];
+					connection.size = offset_t(parameters[1]) * offset_t(parameters[3]) * offset_t(parameters[4]) * offset_t(parameters[5]);
 				}
 
 				dolog(ll_debug, "storage_backend_aoe::connect(%s): size: %llu bytes", id.c_str(), connection.size);

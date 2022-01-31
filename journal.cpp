@@ -21,7 +21,7 @@ journal::journal(const std::string & id, storage_backend *const data, storage_ba
 	memcpy(&jm, b->get_data(), sizeof(jm));
 
 	if (size_t(block_size) < 512 + sizeof(jm))
-		throw myformat("journal(%s): block size (%d) too small, must be at least %d bytes", id.c_str(), block_size, 512 + sizeof(jm));
+		throw myformat("journal(%s): block size (%d) too small, must be at least %ld bytes", id.c_str(), block_size, 512 + sizeof(jm));
 
 	if (journal_->get_size() < offset_t(block_size))
 		throw myformat("journal(%s): journal must be at least one block in size (%d bytes)", id.c_str(), block_size);
@@ -351,7 +351,7 @@ void journal::operator()()
 			}
 
 			if (ja == JA_write) {
-				buffer = reinterpret_cast<uint8_t *>(realloc(buffer, combine_n * jm.block_size));
+				buffer = reinterpret_cast<uint8_t *>(realloc(buffer, combine_n * size_t(jm.block_size)));
 
 				memcpy(&buffer[(combine_n - 1) * jm.block_size], je->data, jm.block_size);
 			}
@@ -371,7 +371,7 @@ void journal::operator()()
 		if (ja == JA_write) {
 			dolog(ll_debug, "journal::operator(%s): writing %d block(s) %lu", id.c_str(), combine_n, first_target_block);
 
-			block b(buffer, combine_n * jm.block_size);
+			block b(buffer, combine_n * size_t(jm.block_size));
 
 			int err = 0;
 			data->put_data(first_target_block * jm.block_size, b, &err);

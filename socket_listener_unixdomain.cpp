@@ -33,7 +33,7 @@ socket_listener_unixdomain::socket_listener_unixdomain(const std::string & path)
 
 	// Binding newly created socket to given IP and verification
 	if (bind(fd, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) == -1)
-		throw myformat("socket_listener_unixdomain: failed to bind to [%s]:%d: %s", path.c_str(), strerror(errno));
+		throw myformat("socket_listener_unixdomain: failed to bind to %s: %s", path.c_str(), strerror(errno));
 
 	if (listen(fd, SOMAXCONN) == -1)
 		throw myformat("socket_listener_unixdomain: failed to listen on socket: %s", strerror(errno));
