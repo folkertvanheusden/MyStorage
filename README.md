@@ -10,6 +10,8 @@ Target(s) can be (an) other NBD- or AoE- server, a plain file, a deduplicated st
 The 'examples'-directory contains some sample configuration files.
 They are in yaml-format.
 
+NBD is "network block device" and AoE is "ATA over Ethernet".
+
 
 NOTE: this software is very young, it may still have bugs that can e.g. corrupt data.
 
