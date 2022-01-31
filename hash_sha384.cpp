@@ -4,6 +4,10 @@
 #include "logging.h"
 
 
+#if defined(CRYPTOPP_NO_GLOBAL_BYTE)
+	using CryptoPP::byte;
+#endif
+
 hash_sha384::hash_sha384()
 {
 }
