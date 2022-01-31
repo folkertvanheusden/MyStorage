@@ -14,9 +14,6 @@
 #include "storage_backend.h"
 #include "str.h"
 
-#include "socket_listener_ipv4.h"
-#include "storage_backend_file.h"
-
 
 std::atomic_bool stop_flag { false };
 
@@ -79,7 +76,7 @@ std::pair<std::vector<server *>, std::vector<storage_backend *> > load_configura
 		storage_backend *sb = storage_backend::load_configuration(node);
 
 		if (sb)
-			storage.push_back(storage_backend::load_configuration(node));
+			storage.push_back(sb);
 	}
 
 	YAML::Node cfg_servers = config["servers"];

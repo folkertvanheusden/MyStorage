@@ -1,0 +1,86 @@
+servers:
+  - type: nbd
+    cfg:
+      storage-backends:
+        - sb-nbd-client
+        - sb-file2
+        - sb-file3
+        - journalled-dedup
+      socket-listener:
+        type: socket-listener-ipv4
+        cfg:
+          listen-addr: 0.0.0.0
+          listen-port: 10809
+  - type: nbd
+    cfg:
+      storage-backends:
+        - sb-file1
+      socket-listener:
+        type: socket-listener-ipv4
+        cfg:
+          listen-addr: 0.0.0.0
+          listen-port: 10810
+storage:
+  - type: storage-backend-file
+    cfg:
+      id: sb-file1
+      file: file1.dat
+      mirrors:
+        []
+      block-size: 4096
+  - type: storage-backend-file
+    cfg:
+      id: sb-file2
+      file: file2.dat
+      mirrors:
+        []
+      block-size: 4096
+  - type: storage-backend-file
+    cfg:
+      id: sb-file3
+      file: file3.dat
+      mirrors:
+        []
+      block-size: 4096
+  - type: storage-backend-nbd
+    cfg:
+      id: sb-nbd-client
+      target:
+        type: socket-client-ipv4
+        cfg:
+          hostname: 192.168.122.115
+          port: 10809
+      export-name: test
+      mirrors:
+        []
+      block-size: 4096
+  - type: journal
+    cfg:
+      id: journalled-dedup
+      storage-backend_data:
+        type: storage-backend-dedup
+        cfg:
+          id: journalled-dedup-data
+          file: /home/folkert/temp/ramdisk/jdd.kch
+          hash:
+            type: hash-sha384
+          mirrors:
+            []
+          block-size: 4096
+          size: 10737418240
+      storage-backend_journal:
+        type: storage-backend-file
+        cfg:
+          id: journalled-dedup-journal
+          file: /home/folkert/temp/ramdisk/jdj.dat
+          mirrors:
+            []
+          block-size: 4096
+      flush-interval: 3000
+      mirrors:
+        []
+      block-size: 4096
+logging:
+  file: mystorage.log
+  loglevel-files: debug
+  loglevel-screen: debug

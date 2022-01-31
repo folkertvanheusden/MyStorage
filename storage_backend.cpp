@@ -1,9 +1,11 @@
 #include "journal.h"
 #include "logging.h"
 #include "storage_backend.h"
+#include "storage_backend_aoe.h"
 #include "storage_backend_compressed_dir.h"
 #include "storage_backend_dedup.h"
 #include "storage_backend_file.h"
+#include "storage_backend_nbd.h"
 #include "str.h"
 #include "types.h"
 
@@ -36,12 +38,16 @@ storage_backend * storage_backend::load_configuration(const YAML::Node & node)
 		return nullptr;
 	}
 
-	if (type == "storage-backend-file")
+	if (type == "storage-backend-nbd")
+		return storage_backend_nbd::load_configuration(node);
+	else if (type == "storage-backend-file")
 		return storage_backend_file::load_configuration(node);
 	else if (type == "storage-backend-dedup")
 		return storage_backend_dedup::load_configuration(node);
 	else if (type == "storage-backend-compressed-dir")
 		return storage_backend_compressed_dir::load_configuration(node);
+	else if (type == "storage-backend-aoe")
+		return storage_backend_aoe::load_configuration(node);
 	else if (type == "journal")
 		return journal::load_configuration(node);
 
