@@ -57,8 +57,10 @@ log_level_t str_to_ll(const std::string & name)
 
 void setlog(const char *lf, const log_level_t ll_file, const log_level_t ll_screen)
 {
-	if (lfh)
+	if (lfh) {
 		fclose(lfh);
+		lfh = nullptr;
+	}
 
 	free(const_cast<char *>(logfile));
 
@@ -76,8 +78,10 @@ void setloguid(const int uid, const int gid)
 
 void closelog()
 {
-	fclose(lfh);
-	lfh = nullptr;
+	if (lfh) {
+		fclose(lfh);
+		lfh = nullptr;
+	}
 
 	free(const_cast<char *>(logfile));
 }
