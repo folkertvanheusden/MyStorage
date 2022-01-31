@@ -14,10 +14,11 @@
 #include "error.h"
 #include "logging.h"
 #include "net.h"
+#include "server.h"
 #include "str.h"
 
 
-aoe::aoe(const std::string & dev_name, storage_backend *const storage_backend, const uint8_t my_mac[6], const int mtu_size_in, const uint16_t major, const uint8_t minor) : base(myformat("%d.%d/%s", major, minor, dev_name.c_str())), dev_name(dev_name), sb(storage_backend), major(major), minor(minor)
+aoe::aoe(const std::string & dev_name, storage_backend *const storage_backend, const uint8_t my_mac[6], const int mtu_size_in, const uint16_t major, const uint8_t minor) : server(myformat("%d.%d/%s", major, minor, dev_name.c_str())), dev_name(dev_name), sb(storage_backend), major(major), minor(minor)
 {
 	mtu_size = mtu_size_in > 0 ? mtu_size_in : 0;
 
@@ -45,16 +46,13 @@ aoe::~aoe()
 	delete th;
 
 	sb->release(this);
-
-	if (sb->obj_in_use_by().empty())
-		delete sb;
 }
 
 YAML::Node aoe::emit_configuration() const
 {
 	YAML::Node out_cfg;
 	out_cfg["dev-name"] = dev_name;
-	out_cfg["storage-backend"] = sb->emit_configuration();
+	out_cfg["storage-backend"] = sb->get_id();
 	out_cfg["my-mac"] = myformat("%02x:%02x:%02x:%02x:%02x:%02x", my_mac[0], my_mac[1], my_mac[2], my_mac[3], my_mac[4], my_mac[5]);
 	out_cfg["mtu-size"] = mtu_size;
 	out_cfg["major"] = major;
@@ -67,7 +65,7 @@ YAML::Node aoe::emit_configuration() const
 	return out;
 }
 
-aoe * aoe::load_configuration(const YAML::Node & node)
+aoe * aoe::load_configuration(const YAML::Node & node, const std::vector<storage_backend *> & storage)
 {
 	const YAML::Node cfg = node["cfg"];
 
@@ -79,12 +77,19 @@ aoe * aoe::load_configuration(const YAML::Node & node)
 		return nullptr;
 	}
 
-	storage_backend *sb = storage_backend::load_configuration(cfg["storage-backend"]);
+	std::string sb_name = cfg["storage-backend"].as<std::string>();
+	storage_backend *sb = find_storage(storage, sb_name);
+	if (!sb) {
+		dolog(ll_error, "aoe::load_configuration: storage \"%s\" not known", sb_name.c_str());
+		return nullptr;
+	}
 
 	std::string dev_name = cfg["dev-name"].as<std::string>();
 	int mtu_size = cfg["mtu-size"].as<int>();
 	uint16_t major = cfg["major"].as<int>();
 	uint8_t minor = cfg["minor"].as<int>();
+
+	dolog(ll_info, "aoe::load_configuration: new AoE server on device \"%s\" with storage \"%s\"", dev_name.c_str(), sb_name.c_str());
 
 	return new aoe(dev_name, sb, my_mac, mtu_size, major, minor);
 }

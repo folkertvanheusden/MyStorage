@@ -1,11 +1,11 @@
 #include <thread>
 #include <yaml-cpp/yaml.h>
 
-#include "base.h"
+#include "server.h"
 #include "storage_backend.h"
 
 
-class aoe : public base
+class aoe : public server
 {
 private:
 	const std::string      dev_name;
@@ -28,5 +28,5 @@ public:
 	void operator()();
 
 	YAML::Node emit_configuration() const override;
-	static aoe * load_configuration(const YAML::Node & node);
+	static aoe * load_configuration(const YAML::Node & node, const std::vector<storage_backend *> & storage);
 };

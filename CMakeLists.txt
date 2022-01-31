@@ -32,6 +32,7 @@ add_executable(mystorage
 	mirror_storage_backend.cpp
 	nbd.cpp
 	net.cpp
+	server.cpp
 	socket_client.cpp
 	socket_client_ipv4.cpp
 	socket_client_ipv6.cpp
@@ -67,6 +68,7 @@ add_executable(test-mystorage
 	mirror_storage_backend.cpp
 	nbd.cpp
 	net.cpp
+	server.cpp
 	socket_client.cpp
 	socket_client_ipv4.cpp
 	socket_client_ipv6.cpp

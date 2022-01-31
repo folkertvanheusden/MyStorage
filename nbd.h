@@ -4,12 +4,12 @@
 #include <vector>
 #include <yaml-cpp/yaml.h>
 
-#include "base.h"
+#include "server.h"
 #include "socket_listener.h"
 #include "storage_backend.h"
 
 
-class nbd : public base
+class nbd : public server
 {
 private:
 	socket_listener               *const sl;
@@ -31,5 +31,5 @@ public:
 	void operator()();
 
 	YAML::Node emit_configuration() const override;
-	static nbd * load_configuration(const YAML::Node & node);
+	static nbd * load_configuration(const YAML::Node & node, const std::vector<storage_backend *> & storage);
 };

@@ -10,7 +10,12 @@
 #include "aoe.h"
 #include "logging.h"
 #include "nbd.h"
+#include "server.h"
+#include "storage_backend.h"
 #include "str.h"
+
+#include "socket_listener_ipv4.h"
+#include "storage_backend_file.h"
 
 
 std::atomic_bool stop_flag { false };
@@ -20,16 +25,21 @@ void sigh(int sig)
 	stop_flag = true;
 }
 
-void store_configuration(const std::vector<base *> & servers, const std::string & file)
+void store_configuration(const std::vector<server *> & servers, const std::vector<storage_backend *> & storage, const std::string & file)
 {
 	YAML::Node out;
-	out["type"] = "MyStorage";
 
 	std::vector<YAML::Node> y_servers;
 	for(auto s : servers)
 		y_servers.push_back(s->emit_configuration());
 
-	out["cfg"] = y_servers;
+	out["servers"] = y_servers;
+
+	std::vector<YAML::Node> y_storage;
+	for(auto sb : storage)
+		y_storage.push_back(sb->emit_configuration());
+
+	out["storage"] = y_storage;
 
 	YAML::Emitter output;
 	output << out;
@@ -46,30 +56,33 @@ void store_configuration(const std::vector<base *> & servers, const std::string 
 	}
 }
 
-std::vector<base *> load_configuration(const std::string & file)
+std::pair<std::vector<server *>, std::vector<storage_backend *> > load_configuration(const std::string & file)
 {
 	dolog(ll_info, "load_configuration: loading configuration from \"%s\"", file.c_str());
 
 	YAML::Node config = YAML::LoadFile(file);
 
-	YAML::Node cfg = config["cfg"];
+	YAML::Node cfg_storage = config["storage"];
 
-	std::vector<base *> servers;
+	std::vector<storage_backend *> storage;
 
-	for(YAML::const_iterator it = cfg.begin(); it != cfg.end(); it++) {
+	for(YAML::const_iterator it = cfg_storage.begin(); it != cfg_storage.end(); it++) {
 		const YAML::Node node = it->as<YAML::Node>();
 
-		std::string type = str_tolower(node["type"].as<std::string>());
-
-		if (type == "nbd")
-			servers.push_back(nbd::load_configuration(node));
-		else if (type == "aoe")
-			servers.push_back(aoe::load_configuration(node));
-		else
-			dolog(ll_error, "load_configuration: server type \"%s\" is unknown", type.c_str(), strerror(errno));
+		storage.push_back(storage_backend::load_configuration(node));
 	}
 
-	return servers;
+	YAML::Node cfg_servers = config["servers"];
+
+	std::vector<server *> servers;
+
+	for(YAML::const_iterator it = cfg_servers.begin(); it != cfg_servers.end(); it++) {
+		const YAML::Node node = it->as<YAML::Node>();
+
+		servers.push_back(server::load_configuration(node, storage));
+	}
+
+	return { servers, storage };
 }
 
 int main(int argc, char *argv[])
@@ -89,7 +102,9 @@ int main(int argc, char *argv[])
 	signal(SIGINT, sigh);
 
 	try {
-		auto servers = load_configuration(yaml_file);
+		auto rc = load_configuration(yaml_file);
+		auto servers = rc.first;
+		auto storage = rc.second;
 
 		dolog(ll_info, "MyStorage running");
 
@@ -98,8 +113,11 @@ int main(int argc, char *argv[])
 
 		dolog(ll_info, "MyStorage terminating");
 
-		for(auto s : servers)
-			delete s;
+		for(auto srv : servers)
+			delete srv;
+
+		for(auto sb : storage)
+			delete sb;
 	}
 	catch(const std::string & err) {
 		dolog(ll_error, "main: caught exception \"%s\"", err.c_str());

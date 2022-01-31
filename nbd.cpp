@@ -9,6 +9,7 @@
 #include "logging.h"
 #include "nbd.h"
 #include "net.h"
+#include "server.h"
 #include "socket_listener.h"
 #include "storage_backend.h"
 #include "str.h"
@@ -48,7 +49,7 @@ constexpr const char *const nbd_cmd_names[] = { "read", "write", "flush", "trim"
 typedef enum { nbd_st_init, nbd_st_client_flags, nbd_st_options, nbd_st_transmission, nbd_st_terminate } nbd_state_t;
 constexpr const char *const nbd_st_strings[] { "init", "client flags", "options", "transmission", "terminate" };
 
-nbd::nbd(socket_listener *const sl, const std::vector<storage_backend *> & storage_backends) : base(sl->get_listen_address()), sl(sl), storage_backends(storage_backends)
+nbd::nbd(socket_listener *const sl, const std::vector<storage_backend *> & storage_backends) : server(sl->get_listen_address()), sl(sl), storage_backends(storage_backends)
 {
 	if (storage_backends.empty())
 		throw "nbd: backends list is empty";
@@ -59,6 +60,9 @@ nbd::nbd(socket_listener *const sl, const std::vector<storage_backend *> & stora
 		else
 			maximum_transaction_size = std::min(maximum_transaction_size, sb->get_maximum_transaction_size());
 	}
+
+	if (maximum_transaction_size == -1)
+		throw myformat("nbd(%s): no storage configured", id.c_str());
 
 	dolog(ll_info, "nbd(%s): maximum transaction size: %d bytes", id.c_str(), maximum_transaction_size);
 
@@ -88,35 +92,44 @@ nbd::~nbd()
 
 	sl->release(this);
 
-	for(auto sb : storage_backends) {
+	for(auto sb : storage_backends)
 		sb->release(this);
-
-		if (sb->obj_in_use_by().empty())
-			delete sb;
-	}
 
 	delete sl;
 }
 
-nbd * nbd::load_configuration(const YAML::Node & node)
+nbd * nbd::load_configuration(const YAML::Node & node, const std::vector<storage_backend *> & storage)
 {
 	const YAML::Node cfg = node["cfg"];
 
 	std::vector<storage_backend *> sbs;
         YAML::Node y_sbs = cfg["storage-backends"];
-        for(YAML::const_iterator it = y_sbs.begin(); it != y_sbs.end(); it++)
-                sbs.push_back(storage_backend::load_configuration(it->as<YAML::Node>()));
+        for(YAML::const_iterator it = y_sbs.begin(); it != y_sbs.end(); it++) {
+		std::string sb_name = it->as<std::string>();
+
+		storage_backend *sb = find_storage(storage, sb_name);
+		if (!sb) {
+			dolog(ll_error, "nbd::load_configuration: storage \"%s\" not known", sb_name.c_str());
+			return nullptr;
+		}
+
+		dolog(ll_info, "nbd::load_configuration: loaded configuration \"%s\" of size %ld bytes", sb->get_id().c_str(), sb->get_size());
+
+                sbs.push_back(sb);
+	}
 
 	socket_listener *sl = socket_listener::load_configuration(cfg["socket-listener"]);
+
+	dolog(ll_info, "nbd::load_configuration: NBD server started, listening on \"%s\" for %zu storages", sl->get_listen_address().c_str(), sbs.size());
 
 	return new nbd(sl, sbs);
 }
 
 YAML::Node nbd::emit_configuration() const
 {
-	std::vector<YAML::Node> out_storage_backends;
+	std::vector<std::string> out_storage_backends;
 	for(auto sb : storage_backends)
-		out_storage_backends.push_back(sb->emit_configuration());
+		out_storage_backends.push_back(sb->get_id());
 
 	YAML::Node out_cfg;
 	out_cfg["storage-backends"] = out_storage_backends;

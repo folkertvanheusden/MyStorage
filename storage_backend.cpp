@@ -224,7 +224,7 @@ void storage_backend::put_data(const offset_t offset, const block & b, int *cons
 
 int storage_backend::get_maximum_transaction_size() const
 {
-	return 1 << 31;
+	return 1 << 30;
 }
 
 bool storage_backend::transaction_start()
