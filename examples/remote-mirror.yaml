@@ -1,0 +1,58 @@
+# define 1 or more servers
+servers:
+  - type: nbd
+    cfg:
+      storage-backends:
+# id of the storage that it will use
+# this same name is used when selecting an NBD-export
+        - journal
+      socket-listener:
+        type: socket-listener-ipv4
+        cfg:
+          listen-addr: 0.0.0.0
+          listen-port: 10809
+storage:
+  - type: journal
+    cfg:
+      id: journal
+# a journal has 2 backends: one for data
+# and one for storing the journal meta-data
+      storage-backend_data:
+# here we store the final data somewhere on a
+# remote location
+        type: storage-backend-nbd
+        cfg:
+          id: journal-data
+          target:
+            type: socket-client-ipv4
+            cfg:
+              hostname: 172.29.0.72
+              port: 10809
+          export-name: remote-data
+          mirrors:
+            []
+          block-size: 4096
+          size: 10737418240
+      storage-backend_journal:
+# here we store the journalling in a local file
+        type: storage-backend-file
+        cfg:
+          id: journal-journal
+# the size of the journal is determined by the
+# size of journal.dat - you need to create it
+# first yourself (by e.g. 'dd' or 'truncate')
+          file: journal.dat
+          mirrors:
+            []
+          block-size: 4096
+# after 100ms, the journal will try to flush
+# the data stored in the journal
+      flush-interval: 100
+      mirrors:
+        []
+      block-size: 4096
+logging:
+  file: mystorage.log
+# debug / info / warning / error
+  loglevel-files: debug
+  loglevel-screen: info
