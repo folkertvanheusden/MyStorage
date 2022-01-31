@@ -13,8 +13,7 @@ set(CMAKE_BUILD_TYPE Debug)
 add_compile_options(-Wall -pedantic)
 
 add_executable(mystorage
-	aoe.cpp
-	aoe-generic.cpp
+	aoe-common.cpp
 	base.cpp
 	block.cpp
 	compresser.cpp
@@ -30,9 +29,10 @@ add_executable(mystorage
 	main.cpp
 	mirror.cpp
 	mirror_storage_backend.cpp
-	nbd.cpp
 	net.cpp
 	server.cpp
+	server_aoe.cpp
+	server_nbd.cpp
 	socket_client.cpp
 	socket_client_ipv4.cpp
 	socket_client_ipv6.cpp
@@ -51,8 +51,7 @@ add_executable(mystorage
 	)
 
 add_executable(test-mystorage
-	aoe.cpp
-	aoe-generic.cpp
+	aoe-common.cpp
 	base.cpp
 	block.cpp
 	compresser.cpp
@@ -68,9 +67,10 @@ add_executable(test-mystorage
 	test.cpp
 	mirror.cpp
 	mirror_storage_backend.cpp
-	nbd.cpp
 	net.cpp
 	server.cpp
+	server_aoe.cpp
+	server_nbd.cpp
 	socket_client.cpp
 	socket_client_ipv4.cpp
 	socket_client_ipv6.cpp

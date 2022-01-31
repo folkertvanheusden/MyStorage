@@ -1,7 +1,7 @@
 #include <vector>
 #include <yaml-cpp/yaml.h>
 
-#include "aoe-generic.h"
+#include "aoe-common.h"
 #include "mirror.h"
 #include "storage_backend.h"
 

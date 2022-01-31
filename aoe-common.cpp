@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include "aoe-generic.h"
+#include "aoe-common.h"
 #include "error.h"
 #include "logging.h"
 #include "str.h"

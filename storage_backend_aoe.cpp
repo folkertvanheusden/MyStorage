@@ -7,7 +7,7 @@
 #include <vector>
 #include <arpa/inet.h>
 
-#include "aoe-generic.h"
+#include "aoe-common.h"
 #include "error.h"
 #include "logging.h"
 #include "mirror.h"

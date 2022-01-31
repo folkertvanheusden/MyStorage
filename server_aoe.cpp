@@ -9,12 +9,12 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include "aoe.h"
-#include "aoe-generic.h"
+#include "aoe-common.h"
 #include "error.h"
 #include "logging.h"
 #include "net.h"
 #include "server.h"
+#include "server_aoe.h"
 #include "str.h"
 
 

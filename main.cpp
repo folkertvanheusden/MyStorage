@@ -7,10 +7,10 @@
 #include <vector>
 #include <yaml-cpp/yaml.h>
 
-#include "aoe.h"
 #include "logging.h"
-#include "nbd.h"
 #include "server.h"
+#include "server_aoe.h"
+#include "server_nbd.h"
 #include "storage_backend.h"
 #include "str.h"
 

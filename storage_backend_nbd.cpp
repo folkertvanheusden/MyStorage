@@ -10,6 +10,7 @@
 #include "error.h"
 #include "io.h"
 #include "logging.h"
+#include "nbd-common.h"
 #include "net.h"
 #include "socket_client.h"
 #include "storage_backend_nbd.h"
@@ -132,9 +133,7 @@ bool storage_backend_nbd::reconnect()
 				return false;
 			}
 
-			// TODO verify 'hs-flag'-field
-
-			uint32_t client_flags = htonl(3);  // bit 0: NBD_FLAG_C_FIXED_NEWSTYLE, bit 1: NBD_FLAG_C_NO_ZEROES
+			uint32_t client_flags = htonl(NBD_FLAG_C_FIXED_NEWSTYLE | NBD_FLAG_C_NO_ZEROES);
 
 			if (WRITE(fd, reinterpret_cast<uint8_t *>(&client_flags), sizeof(client_flags)) != sizeof(client_flags)) {
 				dolog(ll_info, "storage_backend_nbd::reconnect(%s): negotiation failed while transmitting client flags: %s", export_name.c_str(), strerror(errno));
@@ -152,7 +151,7 @@ bool storage_backend_nbd::reconnect()
 			}
 
 			memcpy(co->magic_opt, "IHAVEOPT", 8);
-			co->option = htonl(1);  // NBD_OPT_EXPORT_NAME
+			co->option = htonl(NBD_OPT_EXPORT_NAME);
 			co->data_len = htonl(export_name.size());
 			memcpy(co->data, export_name.c_str(), export_name.size());
 
@@ -217,7 +216,7 @@ bool storage_backend_nbd::get_block(const block_nr_t block_nr, uint8_t **const d
 
 		client_command_t cc { 0 };
 		cc.magic  = htonl(0x25609513);
-		cc.type   = 0;  // NBD_CMD_READ
+		cc.type   = htons(NBD_CMD_READ);
 		cc.handle = seq_nr;  // htonl not required(!)
 		cc.offset = HTONLL(block_nr * block_size);
 		cc.length = htonl(block_size);
@@ -301,7 +300,7 @@ bool storage_backend_nbd::put_block(const block_nr_t block_nr, const uint8_t *co
 		}
 
 		cc->magic  = htonl(0x25609513);
-		cc->type   = htons(1);  // NBD_CMD_WRITE
+		cc->type   = htons(NBD_CMD_WRITE);
 		cc->handle = seq_nr;  // htonl not required(!)
 		cc->offset = HTONLL(block_nr * block_size);
 		cc->length = htonl(block_size);
@@ -358,7 +357,7 @@ bool storage_backend_nbd::fsync()
 
 		client_command_t cc { 0 };
 		cc.magic  = htonl(0x25609513);
-		cc.type   = htons(3);  // NBD_CMD_FLUSH
+		cc.type   = htons(NBD_CMD_FLUSH);
 		cc.handle = seq_nr;  // htonl not required(!)
 		cc.offset = 0;
 		cc.length = 0;
@@ -410,7 +409,7 @@ bool storage_backend_nbd::trim_zero(const offset_t offset, const uint32_t len, c
 
 		client_command_t cc { 0 };
 		cc.magic  = htonl(0x25609513);
-		cc.type   = htons(trim ? 4 : 6);  // NBD_CMD_TRIM / NBD_CMD_ZERO
+		cc.type   = htons(trim ? NBD_CMD_TRIM : NBD_CMD_WRITE_ZEROES);
 		cc.handle = seq_nr;  // htonl not required(!)
 		cc.offset = 0;
 		cc.length = 0;
