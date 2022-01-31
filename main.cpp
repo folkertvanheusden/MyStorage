@@ -76,7 +76,10 @@ std::pair<std::vector<server *>, std::vector<storage_backend *> > load_configura
 	for(YAML::const_iterator it = cfg_storage.begin(); it != cfg_storage.end(); it++) {
 		const YAML::Node node = it->as<YAML::Node>();
 
-		storage.push_back(storage_backend::load_configuration(node));
+		storage_backend *sb = storage_backend::load_configuration(node);
+
+		if (sb)
+			storage.push_back(storage_backend::load_configuration(node));
 	}
 
 	YAML::Node cfg_servers = config["servers"];

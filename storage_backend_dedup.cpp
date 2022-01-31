@@ -15,6 +15,7 @@
 #include "logging.h"
 #include "storage_backend_dedup.h"
 #include "str.h"
+#include "yaml-helpers.h"
 
 
 storage_backend_dedup::storage_backend_dedup(const std::string & id, const std::string & file, hash *const h, const std::vector<mirror *> & mirrors, const offset_t size, const int block_size) : storage_backend(id, block_size, mirrors), h(h), size(size), file(file)
@@ -46,13 +47,13 @@ storage_backend_dedup * storage_backend_dedup::load_configuration(const YAML::No
 	for(YAML::const_iterator it = y_mirrors.begin(); it != y_mirrors.end(); it++)
 		mirrors.push_back(mirror::load_configuration(it->as<YAML::Node>()));
 
-	std::string file = cfg["file"].as<std::string>();
+	std::string file = yaml_get_string(cfg, "file", "deduplication store filename");
 
-	offset_t size = cfg["size"].as<uint64_t>();
+	offset_t size = yaml_get_uint64_t(cfg, "size", "size (in bytes) of the storage");
 
-	int block_size = cfg["block-size"].as<int>();
+	int block_size = yaml_get_int(cfg, "block-size", "block size of store (bigger is faster, smaller is better de-duplication)");
 
-	hash *h = hash::load_configuration(cfg["hash"]);
+	hash *h = hash::load_configuration(yaml_get_yaml_node(cfg, "hash", "hash-function selection"));
 
 	return new storage_backend_dedup(id, file, h, mirrors, size, block_size);
 }

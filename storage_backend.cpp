@@ -26,7 +26,15 @@ storage_backend::~storage_backend()
 
 storage_backend * storage_backend::load_configuration(const YAML::Node & node)
 {
-        const std::string type = str_tolower(node["type"].as<std::string>());
+        std::string type;
+
+	try {
+		type = str_tolower(node["type"].as<std::string>());
+	}
+	catch(YAML::InvalidNode & yin) {
+		dolog(ll_error, "storage_backend::load_configuration: storage type missing");
+		return nullptr;
+	}
 
 	if (type == "storage-backend-file")
 		return storage_backend_file::load_configuration(node);

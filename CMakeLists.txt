@@ -46,6 +46,7 @@ add_executable(mystorage
 	storage_backend_dedup.cpp
 	str.cpp
 	time.cpp
+	yaml-helpers.cpp
 	)
 
 add_executable(test-mystorage
@@ -82,6 +83,7 @@ add_executable(test-mystorage
 	storage_backend_dedup.cpp
 	str.cpp
 	time.cpp
+	yaml-helpers.cpp
 	)
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
