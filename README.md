@@ -23,10 +23,12 @@ required packages
 building
 --------
 
-``mkdir build
+``
+mkdir build
 cd build
 cmake ..
-make``
+make
+``
 
 
 ---
