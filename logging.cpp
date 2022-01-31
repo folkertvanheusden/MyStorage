@@ -1,3 +1,4 @@
+#include <atomic>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
@@ -5,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <thread>
 #include <time.h>
 #include <unistd.h>
 
@@ -18,6 +20,8 @@ log_level_t log_level_file = ll_warning;
 log_level_t log_level_screen = ll_warning;
 static FILE *lfh = nullptr;
 static int lf_uid = 0, lf_gid = 0;
+static std::atomic_bool flush_thread_stop { false };
+static std::thread *flush_thread { nullptr };
 
 std::string ll_to_str(const log_level_t ll)
 {
@@ -55,11 +59,36 @@ log_level_t str_to_ll(const std::string & name)
 	throw myformat("str_to_ll: \"%s\" is not recognized as a log-level", name.c_str());
 }
 
+static void stop_flush_thread()
+{
+	if (flush_thread) {
+		flush_thread_stop = true;
+
+		flush_thread->join();
+		delete flush_thread;
+
+		flush_thread = nullptr;
+	}
+}
+
 void setlog(const char *lf, const log_level_t ll_file, const log_level_t ll_screen)
 {
 	if (lfh) {
+		stop_flush_thread();
+
 		fclose(lfh);
 		lfh = nullptr;
+	}
+
+	if (!flush_thread) {
+		flush_thread_stop = false;
+
+		flush_thread = new std::thread([] {
+				while(!flush_thread_stop) {
+					sleep(1);
+					fflush(lfh);
+				}
+			});
 	}
 
 	free(const_cast<char *>(logfile));
@@ -78,6 +107,8 @@ void setloguid(const int uid, const int gid)
 
 void closelog()
 {
+	stop_flush_thread();
+
 	if (lfh) {
 		fclose(lfh);
 		lfh = nullptr;
