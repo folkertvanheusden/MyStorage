@@ -23,13 +23,14 @@ required packages
 building
 --------
 
-mkdir build
-cd build
-cmake ..
-make
+    mkdir build
+    cd build
+    cmake ..
+    make
 
 
 
 ---
 (C) 2022 by Folkert van Heusden <mail@vanheusden.com>
+
 Released under AGPL v2.0
