@@ -24,6 +24,8 @@ protected:
 	bool get_block(const block_nr_t block_nr, uint8_t **const data) override;
 	bool put_block(const block_nr_t block_nr, const uint8_t *const data) override;
 
+	bool can_do_multiple_blocks() const override;
+
 public:
 	storage_backend_compressed_dir(const std::string & id, const std::string & dir, const int block_size, const offset_t total_size, compresser *const c, const std::vector<mirror *> & mirrors);
 	virtual ~storage_backend_compressed_dir();

@@ -4,6 +4,7 @@
 #include "logging.h"
 
 
+// see https://stackoverflow.com/questions/47510106/compiling-bfx-cpp-api-byte-datatype-undeclared
 #if defined(CRYPTOPP_NO_GLOBAL_BYTE)
 	typedef unsigned char byte;
 #endif

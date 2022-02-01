@@ -24,6 +24,8 @@ private:
 	bool do_ata_command(aoe_ata_t *const aa_in, const int len, uint8_t *const recv_buffer, const int rb_size, int *const err);
 	void wait_for_packet(uint8_t *const recv_buffer, const int rb_size, bool *const error, bool *const timeout, int *const n_data) const;
 
+	bool can_do_multiple_blocks() const override;
+
         bool get_block(const block_nr_t block_nr, uint8_t **const data) override;
         bool put_block(const block_nr_t block_nr, const uint8_t *const data) override;
 

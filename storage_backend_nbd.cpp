@@ -22,6 +22,9 @@ storage_backend_nbd::storage_backend_nbd(const std::string & id, socket_client *
 {
 	seq_nr = time(nullptr);
 
+	if (!verify_mirror_sizes())
+		throw myformat("storage_backend_nbd(%s): mirrors sanity check failed", id.c_str());
+
 	reconnect();
 }
 
@@ -195,16 +198,16 @@ bool storage_backend_nbd::reconnect()
 	return false;
 }
 
-offset_t storage_backend_nbd::get_size() const
+bool storage_backend_nbd::can_do_multiple_blocks() const
 {
-	return size;
+	return true;
 }
 
-bool storage_backend_nbd::get_block(const block_nr_t block_nr, uint8_t **const data)
+bool storage_backend_nbd::get_multiple_blocks(const block_nr_t block_nr, const block_nr_t blocks_to_do, uint8_t *to)
 {
 	seq_nr++;
 
-	dolog(ll_debug, "storage_backend_nbd::get_block(%s): requesting block %ld, handle: %x", export_name.c_str(), block_nr, seq_nr);
+	dolog(ll_debug, "storage_backend_nbd::get_multiple_block(%s): requesting %ld blocks starting at %ld, handle: %x", export_name.c_str(), blocks_to_do, block_nr, seq_nr);
 
 	bool do_reconnect = false;
 
@@ -219,7 +222,8 @@ bool storage_backend_nbd::get_block(const block_nr_t block_nr, uint8_t **const d
 		cc.type   = htons(NBD_CMD_READ);
 		cc.handle = seq_nr;  // htonl not required(!)
 		cc.offset = HTONLL(block_nr * block_size);
-		cc.length = htonl(block_size);
+		size_t size_to_get = block_size * blocks_to_do;
+		cc.length = htonl(size_to_get);
 
 		if (WRITE(fd, reinterpret_cast<const uint8_t *>(&cc), sizeof cc) != sizeof(cc)) {
 			dolog(ll_info, "storage_backend_nbd::get_block(%s): problem transmitting NBD_CMD_READ", export_name.c_str());
@@ -227,55 +231,59 @@ bool storage_backend_nbd::get_block(const block_nr_t block_nr, uint8_t **const d
 			continue;
 		}
 
-		size_t command_size = sizeof(server_command_reply_t) + block_size;
-		server_command_reply_t *scr = reinterpret_cast<server_command_reply_t *>(calloc(1, command_size));
-		if (!scr) {
-			dolog(ll_info, "storage_backend_nbd::get_block(%s): problem allocating %zu bytes of memory", export_name.c_str(), command_size);
-			return false;
-		}
+		server_command_reply_t scr { 0 };
 
-		if (READ(fd, reinterpret_cast<uint8_t *>(scr), command_size) != ssize_t(command_size)) {
+		if (READ(fd, reinterpret_cast<uint8_t *>(&scr), sizeof(scr)) != sizeof(scr)) {
 			dolog(ll_info, "storage_backend_nbd::get_block(%s): problem receiving NBD_CMD_READ reply", export_name.c_str());
-			free(scr);
 			do_reconnect = true;
 			continue;
 		}
 
-		if (ntohl(scr->magic) != 0x67446698) {
-			free(scr);
-			dolog(ll_info, "storage_backend_nbd::get_block(%s): magic (%lx) mismatch", export_name.c_str(), scr->magic);
+		if (ntohl(scr.magic) != 0x67446698) {
+			dolog(ll_info, "storage_backend_nbd::get_block(%s): magic (%lx) mismatch", export_name.c_str(), scr.magic);
 			do_reconnect = true;
 			continue;
 		}
 
-		if (scr->handle != cc.handle) {
-			free(scr);
-			dolog(ll_info, "storage_backend_nbd::get_block(%s): handle (%lx) mismatch (expected %lx)", export_name.c_str(), scr->handle, cc.handle);
+		if (scr.handle != cc.handle) {
+			dolog(ll_info, "storage_backend_nbd::get_block(%s): handle (%lx) mismatch (expected %lx)", export_name.c_str(), scr.handle, cc.handle);
 			do_reconnect = true;
 			continue;
 		}
 
-		if (scr->error != 0) {
-			dolog(ll_info, "storage_backend_nbd::get_block(%s): NBD server indicated error %d", export_name.c_str(), ntohl(scr->error));
-			free(scr);
+		if (scr.error != 0) {
+			dolog(ll_info, "storage_backend_nbd::get_block(%s): NBD server indicated error %d", export_name.c_str(), ntohl(scr.error));
 			return false;
 		}
 
-		*data = reinterpret_cast<uint8_t *>(malloc(block_size));
-		if (!data) {
-			free(scr);
-			dolog(ll_info, "storage_backend_nbd::get_block(%s): problem allocating %zu bytes of memory for result", export_name.c_str(), command_size);
-			return false;
+		if (READ(fd, to, size_to_get) != size_to_get) {
+			dolog(ll_info, "storage_backend_nbd::get_block(%s): problem receiving NBD_CMD_READ data", export_name.c_str());
+			do_reconnect = true;
+			continue;
 		}
-
-		memcpy(*data, scr->data, block_size);
-
-		free(scr);
 
 		return true;
 	}
 
 	return false;
+}
+
+offset_t storage_backend_nbd::get_size() const
+{
+	return size;
+}
+
+bool storage_backend_nbd::get_block(const block_nr_t block_nr, uint8_t **const data)
+{
+	*data = reinterpret_cast<uint8_t *>(malloc(block_size));
+
+	if (get_multiple_blocks(block_nr, 1, *data) == false) {
+		free(*data);
+		dolog(ll_info, "storage_backend_nbd::get_block(%s): failed for block %ld", export_name.c_str(), block_nr);
+		return false;
+	}
+
+	return true;
 }
 
 bool storage_backend_nbd::put_block(const block_nr_t block_nr, const uint8_t *const data)
@@ -390,6 +398,11 @@ bool storage_backend_nbd::fsync()
 		return true;
 	}
 
+        if (do_sync_mirrors() == false) {
+                dolog(ll_error, "storage_backend_nbd::fsync(%s): failed to sync data to mirror(s)", id.c_str());
+                return false;
+        }
+
 	return false;
 }
 
@@ -440,6 +453,11 @@ bool storage_backend_nbd::trim_zero(const offset_t offset, const uint32_t len, c
 		}
 
 		return true;
+	}
+
+	if (do_mirror_trim_zero(offset, len, trim) == false) {
+		dolog(ll_error, "storage_backend_dedup::trim_zero(%s): failed to send to mirror(s)", id.c_str());
+		return false;
 	}
 
 	return false;

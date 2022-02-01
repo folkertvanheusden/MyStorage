@@ -482,6 +482,11 @@ offset_t journal::get_size() const
 	return data->get_size();
 }
 
+bool journal::can_do_multiple_blocks() const
+{
+	return false;
+}
+
 bool journal::get_block(const block_nr_t block_nr, uint8_t **const data)
 {
 	bool rc = false;
@@ -591,7 +596,7 @@ bool journal::trim_zero(const offset_t offset, const uint32_t len, const bool tr
 
 	free(b0x00);
 
-	if (do_trim_zero(offset, len, trim) == false) {
+	if (do_mirror_trim_zero(offset, len, trim) == false) {
 		dolog(ll_error, "journal::trim_zero(%s): failed to send to mirror(s)", id.c_str(), id.c_str());
 		return false;
 	}

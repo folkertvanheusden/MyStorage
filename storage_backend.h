@@ -13,15 +13,20 @@
 
 class storage_backend : public base
 {
+private:
+	bool do_mirror(const offset_t offset, const block & b);
+
 protected:
 	const int                   block_size { 4096 };
 	const std::vector<mirror *> mirrors;
 	lock_group                  lg;
 
-	bool do_mirror(const offset_t offset, const block & b);
 	bool do_sync_mirrors();
-	bool do_trim_zero(const offset_t offset, const uint32_t size, const bool trim);
 	bool verify_mirror_sizes();
+	bool do_mirror_trim_zero(const offset_t offset, const uint32_t size, const bool trim);
+
+	virtual bool can_do_multiple_blocks() const = 0;
+	virtual bool get_multiple_blocks(const block_nr_t block_nr, const block_nr_t blocks_to_do, uint8_t *const to);
 
         virtual bool get_block(const block_nr_t block_nr, uint8_t **const data) = 0;
         virtual bool put_block(const block_nr_t block_nr, const uint8_t *const data) = 0;

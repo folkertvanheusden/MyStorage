@@ -31,7 +31,9 @@ storage:
           export-name: remote-data
           mirrors:
             []
-          block-size: 4096
+# maximum block size that will be used when talking to
+# remote nbd server
+          block-size: 131072
           size: 10737418240
       storage-backend_journal:
 # here we store the journalling in a local file

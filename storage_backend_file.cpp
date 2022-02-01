@@ -79,9 +79,37 @@ offset_t storage_backend_file::get_size() const
 	return size;
 }
 
+bool storage_backend_file::can_do_multiple_blocks() const
+{
+	return true;
+}
+
+bool storage_backend_file::get_multiple_blocks(const block_nr_t block_nr, const block_nr_t blocks_to_do, uint8_t *to)
+{
+	const offset_t offset = block_nr * block_size;
+	if (lseek(fd, offset, SEEK_SET) == -1) {
+		dolog(ll_error, "storage_backend_file::get_multiple_blocks(%s): failed to seek in file to offset %ld", id.c_str(), offset);
+		return false;
+	}
+
+	int rc = READ(fd, to, block_size * blocks_to_do);
+	if (rc != ssize_t(block_size * blocks_to_do)) {
+		dolog(ll_error, "storage_backend_file::get_multiple_blocks(%s): failed to read %ld blocks from file at offset %ld: expected %d, got %d", id.c_str(), blocks_to_do, offset, block_size, rc);
+		return false;
+	}
+
+	return true;
+}
+
 bool storage_backend_file::get_block(const block_nr_t block_nr, uint8_t **const data)
 {
 	const offset_t offset = block_nr * block_size;
+
+	if (offset + block_size > this->size) {
+		dolog(ll_error, "storage_backend_file::get_data(%s): this read would be beyond the device size (%ld > %ld)", id.c_str(), offset + block_size, this->size);
+		return false;
+	}
+
 	if (lseek(fd, offset, SEEK_SET) == -1) {
 		dolog(ll_error, "storage_backend_file::get_block(%s): failed to seek in file to offset %ld", id.c_str(), offset);
 		return false;
@@ -96,7 +124,7 @@ bool storage_backend_file::get_block(const block_nr_t block_nr, uint8_t **const 
 	int rc = READ(fd, *data, block_size);
 	if (rc != block_size) {
 		free(*data);
-		dolog(ll_error, "storage_backend_file::get_block(%s): failed to read from file at offset %ld: expected %d, got %d", id.c_str(), offset, block_size, rc);
+		dolog(ll_error, "storage_backend_file::get_block(%s): failed to read from file at offset %ld: expected %d, got %d (%d - %s)", id.c_str(), offset, block_size, rc, errno, strerror(errno));
 		return false;
 	}
 
@@ -168,7 +196,7 @@ bool storage_backend_file::trim_zero(const offset_t offset, const uint32_t len, 
 	}
 #endif
 
-	if (do_trim_zero(offset, len, trim) == false) {
+	if (do_mirror_trim_zero(offset, len, trim) == false) {
 		dolog(ll_error, "storage_backend_file::trim_zero(%s): failed to send to mirror(s)", id.c_str());
 		return false;
 	}

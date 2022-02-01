@@ -22,6 +22,9 @@ storage_backend_aoe::storage_backend_aoe(const std::string & id, const std::vect
 
 	connection.mtu_size = mtu_size;
 
+	if (!verify_mirror_sizes())
+		throw myformat("storage_backend_aoe(%s): mirrors sanity check failed", id.c_str());
+
 	if (!connect())
 		dolog(ll_warning, "storage_backend_aoe(%s): failed to connect to AoE target %d:%d (via interface \"%s\")", id.c_str(), major, minor, dev_name.c_str());
 }
@@ -118,6 +121,11 @@ static uint64_t get_idi_value(const uint16_t *const p, const int len)
 	}
 
 	return out;
+}
+
+bool storage_backend_aoe::can_do_multiple_blocks() const
+{
+	return false;
 }
 
 bool storage_backend_aoe::connect() const
@@ -633,7 +641,7 @@ bool storage_backend_aoe::trim_zero(const offset_t offset, const uint32_t len, c
 			work_offset += 512;
 		}
 
-		if (do_trim_zero(offset, len, trim) == false) {
+		if (do_mirror_trim_zero(offset, len, trim) == false) {
 			dolog(ll_error, "storage_backend_aoe::trim_zero(%s): failed to send to mirror(s)", id.c_str());
 			free(aa);
 			return false;
@@ -650,7 +658,7 @@ bool storage_backend_aoe::trim_zero(const offset_t offset, const uint32_t len, c
 
 		put_data(offset, block(data0x00, len), err);
 
-		if (do_trim_zero(offset, len, trim) == false) {
+		if (do_mirror_trim_zero(offset, len, trim) == false) {
 			dolog(ll_error, "storage_backend_aoe::trim_zero(%s): failed to send to mirror(s)", id.c_str());
 			return false;
 		}

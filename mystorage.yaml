@@ -34,7 +34,7 @@ storage:
       file: file2.dat
       mirrors:
         []
-      block-size: 4096
+      block-size: 131072
   - type: storage-backend-file
     cfg:
       id: sb-file3

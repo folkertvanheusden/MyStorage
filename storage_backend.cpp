@@ -101,14 +101,14 @@ bool storage_backend::do_sync_mirrors()
 	return ok;
 }
 
-bool storage_backend::do_trim_zero(const offset_t offset, const uint32_t size, const bool trim)
+bool storage_backend::do_mirror_trim_zero(const offset_t offset, const uint32_t size, const bool trim)
 {
 	bool ok = true;
 
 	for(auto m : mirrors) {
 		if (m->trim_zero(offset, size, trim) == false) {
 			ok = false;
-			dolog(ll_error, "storage_backend::do_trim_zero(%s): failed trim/zero mirror %s", id.c_str(), m->get_id().c_str());
+			dolog(ll_error, "storage_backend::do_mirror_trim_zero(%s): failed trim/zero mirror %s", id.c_str(), m->get_id().c_str());
 		}
 	}
 
@@ -132,6 +132,13 @@ void storage_backend::get_data(const offset_t offset, const uint32_t size, block
 	*b = new block(out, size);
 }
 
+bool storage_backend::get_multiple_blocks(const block_nr_t block_nr, const block_nr_t blocks_to_do, uint8_t *to)
+{
+	dolog(ll_error, "storage_backend::get_multiple_blocks(%s): not implemented for this backend. this is a fatal internal error!", id.c_str());
+
+	return false;
+}
+
 void storage_backend::get_data(const offset_t offset, const uint32_t size, uint8_t **const out, int *const err)
 {
 	*err = 0;
@@ -147,23 +154,43 @@ void storage_backend::get_data(const offset_t offset, const uint32_t size, uint8
 	while(work_size > 0) {
 		block_nr_t block_nr = work_offset / block_size;
 		uint32_t block_offset = work_offset % block_size;
+		block_nr_t blocks_to_do = work_size / block_size;
 
-		uint32_t current_size = std::min(work_size, block_size - block_offset);
+		uint32_t current_size = 0;
 
-		uint8_t *temp = nullptr;
+		if (block_offset == 0 && can_do_multiple_blocks() == true && blocks_to_do >= 2) {
+			// TODO limit to what server can handle
+			current_size = blocks_to_do * block_size;
 
-		if (!get_block(block_nr, &temp)) {
-			dolog(ll_error, "storage_backend::get_data(%s): failed to retrieve block %ld", id.c_str(), block_nr);
-			*err = EINVAL;
-			free(out);
-			break;
+			*out = reinterpret_cast<uint8_t *>(realloc(*out, out_size + current_size));
+
+			if (!get_multiple_blocks(block_nr, blocks_to_do, &(*out)[out_size])) {
+				dolog(ll_error, "storage_backend::get_data(%s): failed to retrieve %ld blocks starting at %ld", id.c_str(), blocks_to_do, block_nr);
+				*err = EINVAL;
+				free(out);
+				break;
+			}
+
+			out_size += current_size;
 		}
+		else {
+			uint8_t *temp = nullptr;
 
-		*out = reinterpret_cast<uint8_t *>(realloc(*out, out_size + current_size));
-		memcpy(&(*out)[out_size], &temp[block_offset], current_size);
-		out_size += current_size;
+			current_size = std::min(work_size, block_size - block_offset);
 
-		free(temp);
+			if (!get_block(block_nr, &temp)) {
+				dolog(ll_error, "storage_backend::get_data(%s): failed to retrieve block %ld", id.c_str(), block_nr);
+				*err = EINVAL;
+				free(out);
+				break;
+			}
+
+			*out = reinterpret_cast<uint8_t *>(realloc(*out, out_size + current_size));
+			memcpy(&(*out)[out_size], &temp[block_offset], current_size);
+			out_size += current_size;
+
+			free(temp);
+		}
 
 		work_offset += current_size;
 		work_size -= current_size;

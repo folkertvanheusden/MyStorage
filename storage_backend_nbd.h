@@ -20,7 +20,11 @@ private:
 
 protected:
 	bool get_block(const block_nr_t block_nr, uint8_t **const data) override;
+	bool get_multiple_blocks(const block_nr_t block_nr, const block_nr_t blocks_to_do, uint8_t *to);
+
 	bool put_block(const block_nr_t block_nr, const uint8_t *const data) override;
+
+	bool can_do_multiple_blocks() const override;
 
 public:
 	storage_backend_nbd(const std::string & id, socket_client *const sc, const std::string & export_name, const int block_size, const std::vector<mirror *> & mirrors);

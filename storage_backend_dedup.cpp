@@ -20,11 +20,11 @@
 
 storage_backend_dedup::storage_backend_dedup(const std::string & id, const std::string & file, hash *const h, const std::vector<mirror *> & mirrors, const offset_t size, const int block_size) : storage_backend(id, block_size, mirrors), h(h), size(size), file(file)
 {
-	if (db.open(myformat("%s#*", file.c_str()), kyotocabinet::PolyDB::OWRITER | kyotocabinet::PolyDB::OCREATE) == false)
-		throw myformat("storage_backend_dedup: failed to access DB-file \"%s\": %s", file.c_str(), db.error().message());
-
 	if (!verify_mirror_sizes())
 		throw myformat("storage_backend_dedup(%s): mirrors sanity check failed", file.c_str());
+
+	if (db.open(myformat("%s#*", file.c_str()), kyotocabinet::PolyDB::OWRITER | kyotocabinet::PolyDB::OCREATE) == false)
+		throw myformat("storage_backend_dedup: failed to access DB-file \"%s\": %s", file.c_str(), db.error().message());
 }
 
 storage_backend_dedup::~storage_backend_dedup()
@@ -77,6 +77,11 @@ YAML::Node storage_backend_dedup::emit_configuration() const
 	out["cfg"] = out_cfg;
 
 	return out;
+}
+
+bool storage_backend_dedup::can_do_multiple_blocks() const
+{
+	return false;
 }
 
 offset_t storage_backend_dedup::get_size() const
@@ -509,7 +514,7 @@ bool storage_backend_dedup::trim_zero(const offset_t offset, const uint32_t len,
 
 	free(b0x00);
 
-	if (do_trim_zero(offset, len, trim) == false) {
+	if (do_mirror_trim_zero(offset, len, trim) == false) {
 		dolog(ll_error, "storage_backend_dedup::trim_zero(%s): failed to send to mirror(s)", id.c_str());
 		return false;
 	}

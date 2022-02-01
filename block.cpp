@@ -25,6 +25,9 @@ block::block(const std::vector<uint8_t> & data) : data(reinterpret_cast<uint8_t 
 
 block::block(const block & other) : data(reinterpret_cast<uint8_t *>(malloc(other.get_size()))), len(other.get_size()), do_free(true)
 {
+	if (!this->data)
+		throw myformat("block: cannot allocate %zu bytes of memory", other.get_size());
+
 	memcpy(const_cast<uint8_t *>(this->data), other.get_data(), other.get_size());
 }
 							    

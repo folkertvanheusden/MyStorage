@@ -42,6 +42,9 @@ private:
 	bool delete_block_counter_by_hash(const std::string block_hash);
 	bool map_blocknr_to_hash(const block_nr_t block_nr, const std::string & new_block_hash);
 
+protected:
+	bool can_do_multiple_blocks() const override;
+
 public:
 	storage_backend_dedup(const std::string & id, const std::string & file, hash *const h, const std::vector<mirror *> & mirrors, const offset_t size, const int block_size);
 	virtual ~storage_backend_dedup();

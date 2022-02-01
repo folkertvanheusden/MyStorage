@@ -68,6 +68,8 @@ protected:
         bool get_block(const block_nr_t block_nr, uint8_t **const data) override;
         bool put_block(const block_nr_t block_nr, const uint8_t *const data) override;
 
+	bool can_do_multiple_blocks() const override;
+
 public:
 	journal(const std::string & id, storage_backend *const data, storage_backend *const journal_, const unsigned int flush_interval);
 	virtual ~journal();

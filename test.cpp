@@ -4,12 +4,17 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/random.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "hash_sha384.h"
 #include "journal.h"
 #include "logging.h"
+#include "socket_client_ipv4.h"
 #include "storage_backend_file.h"
+#include "storage_backend_dedup.h"
+#include "storage_backend_nbd.h"
 #include "time.h"
 #include "types.h"
 
@@ -31,6 +36,156 @@ void make_file(const std::string & name, const off_t size)
 	os_assert(close(fd));
 }
 
+void test_integrity(storage_backend *const sb)
+{
+	dolog(ll_info, " -> integrity tests, \"%s\"", sb->get_id().c_str());
+
+	try {
+		const offset_t size = sb->get_size();
+		const unsigned int block_size = sb->get_block_size();
+		const uint64_t put_n = size / block_size;
+
+		// Fill, fase 1
+		dolog(ll_info, " * fill fase 1 (put %ld blocks)", put_n / 2);
+
+		for(uint64_t i=0; i<put_n / 2; i++) {
+			uint64_t offset = 0;
+
+       			if (getrandom(&offset, sizeof(offset), 0) != sizeof(offset))
+				throw "Problem getting random";
+
+			offset %= size - block_size;
+			offset &= ~7;
+
+			uint32_t len = 0;
+
+       			if (getrandom(&len, sizeof(len), 0) != sizeof(len))
+				throw "Problem getting random";
+
+			len %= std::min(size - offset, offset_t(262144));
+			len &= ~7;
+
+			if (len == 0)
+				continue;
+
+			uint8_t *data = reinterpret_cast<uint8_t *>(malloc(len));
+
+			for(uint32_t j=0; j<len; j += 8)
+				*reinterpret_cast<uint64_t *>(data + j) = offset + j;
+
+			block b(data, len);
+
+			int err = 0;
+			sb->put_data(offset, b, &err);
+
+			assert(err == 0);
+		}
+
+		// Fill, fase 2
+		dolog(ll_info, " * fill fase 2");
+		
+		for(uint64_t i=0; i<size; i += block_size * 16) {
+			uint8_t *d = nullptr;
+			int err = 0;
+			sb->get_data(i, block_size * 16, &d, &err);
+
+			assert(err == 0);
+
+			bool set = false;
+
+			for(unsigned int j=0; j<block_size * 16; j += 8) {
+				if (*reinterpret_cast<uint64_t *>(d + j) == 0) {
+					set = true;
+					*reinterpret_cast<uint64_t *>(d + j) = i + j;
+				}
+			}
+
+			if (set) {
+				block b(d, block_size * 16);
+				sb->put_data(i, b, &err);
+			}
+			else {
+				free(d);
+			}
+
+			assert(err == 0);
+		}
+
+		// Verify
+		dolog(ll_info, " * verify");
+		
+		for(uint64_t i=0; i<size; i += block_size * 16) {
+			uint8_t *d = nullptr;
+			int err = 0;
+			sb->get_data(i, block_size * 16, &d, &err);
+
+			assert(err == 0);
+
+			for(unsigned int j=0; j<block_size * 16; j += 8)
+				assert(*reinterpret_cast<uint64_t *>(d + j) == i + j);
+
+			free(d);
+		}
+	}
+	catch(const std::string & error) {
+		fprintf(stderr, "exception: %s\n", error.c_str());
+		assert(0);
+	}
+}
+
+void test_integrities()
+{
+	if (1)
+	{
+		const std::string test_data_file = "test/data.dat";
+
+		constexpr offset_t data_size = 5l * 1024l * 1024l * 1024l;
+		constexpr int block_size = 4096;
+
+		make_file(test_data_file, data_size);  // 1GB data file
+
+		storage_backend_file sbf_data("data", test_data_file, block_size, { });
+
+		test_integrity(&sbf_data);
+
+		os_assert(unlink(test_data_file.c_str()));
+	}
+
+	if (1) {
+		try {
+			socket_client_ipv4 sc("192.168.122.115", 10809);
+
+			storage_backend_nbd nbd("nbd-test", &sc, "test", 131072, { });
+
+			test_integrity(&nbd);
+		}
+		catch(const std::string & error) {
+			fprintf(stderr, "exception: %s\n", error.c_str());
+			assert(0);
+		}
+	}
+
+	if (1) {
+		try {
+			const std::string test_data_file = "test/data.kch";
+
+			constexpr offset_t data_size = 1024l * 1024l * 1024l;
+			constexpr int block_size = 4096;
+
+			hash *h = new hash_sha384();
+			storage_backend_dedup sbf_data("data", test_data_file, h, { }, data_size, block_size);
+
+			test_integrity(&sbf_data);
+
+			os_assert(unlink(test_data_file.c_str()));
+		}
+		catch(const std::string & error) {
+			fprintf(stderr, "exception: %s\n", error.c_str());
+			assert(0);
+		}
+	}
+}
+
 void test_journal()
 {
 	dolog(ll_info, " -> journal tests");
@@ -44,7 +199,7 @@ void test_journal()
 
 		constexpr uint64_t put_n = data_size / block_size;
 
-		make_file(test_data_file.c_str(), data_size);  // 1GB data file
+		make_file(test_data_file, data_size);  // 1GB data file
 		make_file(test_journal_file.c_str(), 1024 * 1024);  // 1MB journal file, 4 kB header
 
 		// test if what goes in, goes out
@@ -208,7 +363,9 @@ int main(int argc, char *argv[])
 
 	setup();
 
-	test_journal();
+	test_integrities();
+
+//	test_journal();
 
 	dolog(ll_info, " *** ALL FINE ***");
 

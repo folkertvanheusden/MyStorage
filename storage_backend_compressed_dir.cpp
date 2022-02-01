@@ -78,6 +78,11 @@ storage_backend_compressed_dir * storage_backend_compressed_dir::load_configurat
 	return new storage_backend_compressed_dir(id, directory, block_size, total_size, c, mirrors);
 }
 
+bool storage_backend_compressed_dir::can_do_multiple_blocks() const
+{
+	return false;
+}
+
 offset_t storage_backend_compressed_dir::get_size() const
 {
 	return total_size;
@@ -245,7 +250,7 @@ bool storage_backend_compressed_dir::trim_zero(const offset_t offset, const uint
 
 	lg.un_lock_block_group(offset, len, block_size, false, false);
 
-	if (do_trim_zero(offset, len, trim) == false) {
+	if (do_mirror_trim_zero(offset, len, trim) == false) {
 		dolog(ll_error, "storage_backend_compressed_dir::trim_zero(%s): failed to send to mirror(s)", id.c_str());
 		return false;
 	}
