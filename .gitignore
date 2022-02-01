@@ -1,2 +1,8 @@
 *.dat
 build
+work
+infer-out/
+todo
+err.txt
+mystorage.log
+test-mystorage.log
