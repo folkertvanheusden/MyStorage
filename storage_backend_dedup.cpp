@@ -284,9 +284,10 @@ bool storage_backend_dedup::get_block_int(const block_nr_t block_nr, uint8_t **c
 		return false;
 	}
 
-	uint8_t *temp = reinterpret_cast<uint8_t *>(calloc(1, block_size));
+	size_t temp_size = c ? block_size * 2 + 128 : block_size;
+	uint8_t *temp = reinterpret_cast<uint8_t *>(calloc(1, temp_size));
 	if (!temp) {
-		dolog(ll_error, "storage_backend_dedup::get_block_int(%s): cannot allocate %lu bytes of memory", id.c_str(), block_size);
+		dolog(ll_error, "storage_backend_dedup::get_block_int(%s): cannot allocate %lu bytes of memory", id.c_str(), temp_size);
 		return false;
 	}
 
@@ -297,7 +298,7 @@ bool storage_backend_dedup::get_block_int(const block_nr_t block_nr, uint8_t **c
 	// hash-to-data key
 	std::string htd_key = get_data_key_for_hash(hfb.value().c_str());
 
-	int rc2 = db.get(htd_key.c_str(), htd_key.size(), reinterpret_cast<char *>(temp), block_size);
+	int rc2 = db.get(htd_key.c_str(), htd_key.size(), reinterpret_cast<char *>(temp), temp_size);
 
 	if (rc2 == -1) {
 		dolog(ll_error, "storage_backend_dedup::get_block_int(%s): failed to retrieve block data for hash \"%s\": %s", id.c_str(), htd_key.c_str(), db.error().message());
@@ -313,7 +314,7 @@ bool storage_backend_dedup::get_block_int(const block_nr_t block_nr, uint8_t **c
 			return false;
 		}
 
-		if (data_out_len != block_size) {
+		if (data_out_len != size_t(block_size)) {
 			dolog(ll_error, "storage_backend_dedup::get_block_int(%s): failed to decompress block; size (%zu) mismatch (expected: %zu)", id.c_str(), data_out_len, block_size);
 			free(temp);
 			free(*data);
