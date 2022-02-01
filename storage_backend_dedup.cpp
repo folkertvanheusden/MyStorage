@@ -316,8 +316,8 @@ bool storage_backend_dedup::get_block_int(const block_nr_t block_nr, uint8_t **c
 
 		if (data_out_len != size_t(block_size)) {
 			dolog(ll_error, "storage_backend_dedup::get_block_int(%s): failed to decompress block; size (%zu) mismatch (expected: %zu)", id.c_str(), data_out_len, block_size);
-			free(temp);
 			free(*data);
+			free(temp);
 			return false;
 		}
 
