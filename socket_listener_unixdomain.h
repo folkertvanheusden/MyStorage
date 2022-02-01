@@ -13,7 +13,7 @@ public:
 	socket_listener_unixdomain(const std::string & path);
 	~socket_listener_unixdomain();
 
-	std::string get_listen_address() const;
+	std::string get_listen_address() const override;
 
 	int wait_for_client(std::atomic_bool *const stop_flag) override;
 

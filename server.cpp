@@ -29,10 +29,10 @@ server * server::load_configuration(const YAML::Node & node, const std::vector<s
 
 storage_backend * find_storage(const std::vector<storage_backend *> & storage, const std::string & sb_name)
 {
-	for(auto s : storage) {
-		if (s->get_id() == sb_name)
-			return s;
-	}
+	auto it = std::find_if(storage.begin(), storage.end(), [sb_name] (const auto & sb) { return sb->get_id() == sb_name; });
 
-	return nullptr;
+	if (it == storage.end())
+		return nullptr;
+
+	return *it;
 }

@@ -14,7 +14,7 @@ public:
 	socket_listener_ipv4(const std::string & listen_addr, const int listen_port);
 	~socket_listener_ipv4();
 
-	std::string get_listen_address() const;
+	std::string get_listen_address() const override;
 
 	int wait_for_client(std::atomic_bool *const stop_flag) override;
 
