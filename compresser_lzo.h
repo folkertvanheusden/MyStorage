@@ -10,6 +10,8 @@ public:
 	compresser_lzo();
 	virtual ~compresser_lzo();
 
+	std::string get_type() const override;
+
 	bool compress(const uint8_t *const in, const size_t in_len, uint8_t **const out, size_t *const out_len) override;
 	bool decompress(const uint8_t *const in, const size_t in_len, uint8_t **const out, size_t *const out_len) override;
 

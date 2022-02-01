@@ -18,13 +18,27 @@
 #include "yaml-helpers.h"
 
 
-storage_backend_dedup::storage_backend_dedup(const std::string & id, const std::string & file, hash *const h, const std::vector<mirror *> & mirrors, const offset_t size, const int block_size) : storage_backend(id, block_size, mirrors), h(h), size(size), file(file)
+storage_backend_dedup::storage_backend_dedup(const std::string & id, const std::string & file, hash *const h, compresser *const c, const std::vector<mirror *> & mirrors, const offset_t size, const int block_size) : storage_backend(id, block_size, mirrors), h(h), c(c), size(size), file(file)
 {
 	if (!verify_mirror_sizes())
 		throw myformat("storage_backend_dedup(%s): mirrors sanity check failed", file.c_str());
 
 	if (db.open(myformat("%s#*", file.c_str()), kyotocabinet::PolyDB::OWRITER | kyotocabinet::PolyDB::OCREATE) == false)
 		throw myformat("storage_backend_dedup: failed to access DB-file \"%s\": %s", file.c_str(), db.error().message());
+
+	const std::string compressed_key = "compressed";
+
+	std::string compressed_value;
+	if (db.get(compressed_key, &compressed_value) == false) {
+		dolog(ll_info, "storage_backend_dedup(%s): NEW database file", file.c_str());
+
+		if (db.set(compressed_key, c ? c->get_type() : "") == false)
+			throw myformat("storage_backend_dedup(%s): cannot write to database", file.c_str());
+	}
+	else {
+		if ((c != nullptr && compressed_value != c->get_type()) || (c == nullptr && compressed_value.empty() == false))
+			throw myformat("storage_backend_dedup(%s): compression setting mismatch", file.c_str());
+	}
 }
 
 storage_backend_dedup::~storage_backend_dedup()
@@ -53,9 +67,11 @@ storage_backend_dedup * storage_backend_dedup::load_configuration(const YAML::No
 
 	int block_size = yaml_get_int(cfg, "block-size", "block size of store (bigger is faster, smaller is better de-duplication)");
 
+	compresser *c = compresser::load_configuration(yaml_get_yaml_node(cfg, "compresser", "compression schema"));
+
 	hash *h = hash::load_configuration(yaml_get_yaml_node(cfg, "hash", "hash-function selection"));
 
-	return new storage_backend_dedup(id, file, h, mirrors, size, block_size);
+	return new storage_backend_dedup(id, file, h, c, mirrors, size, block_size);
 }
 
 YAML::Node storage_backend_dedup::emit_configuration() const
@@ -71,6 +87,7 @@ YAML::Node storage_backend_dedup::emit_configuration() const
 	out_cfg["size"] = size;
 	out_cfg["block-size"] = block_size;
 	out_cfg["hash"] = h->emit_configuration();
+	out_cfg["compresser"] = c->emit_configuration();
 
 	YAML::Node out;
 	out["type"] = "storage-backend-dedup";
@@ -267,7 +284,11 @@ bool storage_backend_dedup::get_block_int(const block_nr_t block_nr, uint8_t **c
 		return false;
 	}
 
-	*data = reinterpret_cast<uint8_t *>(calloc(1, block_size));
+	uint8_t *temp = reinterpret_cast<uint8_t *>(calloc(1, block_size));
+	if (!temp) {
+		dolog(ll_error, "storage_backend_dedup::get_block_int(%s): cannot allocate %lu bytes of memory", id.c_str(), block_size);
+		return false;
+	}
 
 	// block does not exist yet, return 0x00
 	if (hfb.value().empty())
@@ -276,12 +297,33 @@ bool storage_backend_dedup::get_block_int(const block_nr_t block_nr, uint8_t **c
 	// hash-to-data key
 	std::string htd_key = get_data_key_for_hash(hfb.value().c_str());
 
-	int rc2 = db.get(htd_key.c_str(), htd_key.size(), reinterpret_cast<char *>(*data), block_size);
+	int rc2 = db.get(htd_key.c_str(), htd_key.size(), reinterpret_cast<char *>(temp), block_size);
 
 	if (rc2 == -1) {
 		dolog(ll_error, "storage_backend_dedup::get_block_int(%s): failed to retrieve block data for hash \"%s\": %s", id.c_str(), htd_key.c_str(), db.error().message());
-		free(*data);
+		free(temp);
 		return false;
+	}
+
+	if (c) {
+		size_t data_out_len = 0;
+		if (c->decompress(temp, rc2, data, &data_out_len) == false) {
+			dolog(ll_error, "storage_backend_dedup::get_block_int(%s): failed to decompress block \"%s\"", id.c_str(), htd_key.c_str());
+			free(temp);
+			return false;
+		}
+
+		if (data_out_len != block_size) {
+			dolog(ll_error, "storage_backend_dedup::get_block_int(%s): failed to decompress block; size (%zu) mismatch (expected: %zu)", id.c_str(), data_out_len, block_size);
+			free(temp);
+			free(*data);
+			return false;
+		}
+
+		free(temp);
+	}
+	else {
+		*data = temp;
 	}
 
 	return true;
@@ -423,13 +465,40 @@ bool storage_backend_dedup::put_block_int(const block_nr_t block_nr, const uint8
 			return false;
 		}
 
-		// - put block
-		if (put_key_value(get_data_key_for_hash(new_block_hash.value()), data_in, block_size) == false) {
-			ABORT_TRANSACTION(db, myformat("storage_backend_dedup::put_block_int(%s):", id.c_str()));
+		if (c) {
+			// compress data
+			uint8_t *data_compressed = nullptr;
+			size_t data_compressed_size = 0;
+			if (c->compress(data_in, block_size, &data_compressed, &data_compressed_size) == false) {
+				ABORT_TRANSACTION(db, myformat("storage_backend_dedup::put_block_int(%s):", id.c_str()));
 
-			dolog(ll_error, "storage_backend_dedup::put_block_int(%s): failed to store data block with hash \"%s\"", id.c_str(), new_block_hash.value().c_str());
+				dolog(ll_error, "storage_backend_dedup::put_block_int(%s): failed to compress data with hash \"%s\"", id.c_str(), new_block_hash.value().c_str());
 
-			return false;
+				return false;
+			}
+
+			// - put block
+			if (put_key_value(get_data_key_for_hash(new_block_hash.value()), data_compressed, data_compressed_size) == false) {
+				ABORT_TRANSACTION(db, myformat("storage_backend_dedup::put_block_int(%s):", id.c_str()));
+
+				free(data_compressed);
+
+				dolog(ll_error, "storage_backend_dedup::put_block_int(%s): failed to store data block with hash \"%s\"", id.c_str(), new_block_hash.value().c_str());
+
+				return false;
+			}
+
+			free(data_compressed);
+		}
+		else {
+			// - put block
+			if (put_key_value(get_data_key_for_hash(new_block_hash.value()), data_in, block_size) == false) {
+				ABORT_TRANSACTION(db, myformat("storage_backend_dedup::put_block_int(%s):", id.c_str()));
+
+				dolog(ll_error, "storage_backend_dedup::put_block_int(%s): failed to store data block with hash \"%s\"", id.c_str(), new_block_hash.value().c_str());
+
+				return false;
+			}
 		}
 	}
 
