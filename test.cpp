@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "compresser_lzo.h"
 #include "hash_sha384.h"
 #include "journal.h"
 #include "logging.h"
@@ -173,7 +174,8 @@ void test_integrities()
 			constexpr int block_size = 4096;
 
 			hash *h = new hash_sha384();
-			storage_backend_dedup sbf_data("data", test_data_file, h, { }, data_size, block_size);
+			compresser *c = new compresser_lzo();
+			storage_backend_dedup sbf_data("data", test_data_file, h, c, { }, data_size, block_size);
 
 			test_integrity(&sbf_data);
 

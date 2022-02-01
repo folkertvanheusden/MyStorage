@@ -64,6 +64,8 @@ storage:
           file: /home/folkert/temp/ramdisk/jdd.kch
           hash:
             type: hash-sha384
+          compresser:
+            type: compresser-lzo
           mirrors:
             []
           block-size: 4096

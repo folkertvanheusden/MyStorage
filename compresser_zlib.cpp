@@ -13,6 +13,11 @@ compresser_zlib::~compresser_zlib()
 {
 }
 
+std::string compresser_zlib::get_type() const
+{
+	return "zlib";
+}
+
 YAML::Node compresser_zlib::emit_configuration() const
 {
         YAML::Node out_cfg;

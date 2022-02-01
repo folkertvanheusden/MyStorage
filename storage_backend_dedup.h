@@ -5,6 +5,7 @@
 #include <yaml-cpp/yaml.h>
 
 #include "block.h"
+#include "compresser.h"
 #include "hash.h"
 #include "lock_group.h"
 #include "storage_backend.h"
@@ -14,6 +15,7 @@ class storage_backend_dedup : public storage_backend
 {
 private:
 	hash          *const h { nullptr };
+	compresser    *const c { nullptr };
 	offset_t             size { 0 };
 	lock_group           lgdd;
 	kyotocabinet::PolyDB db;
@@ -46,7 +48,7 @@ protected:
 	bool can_do_multiple_blocks() const override;
 
 public:
-	storage_backend_dedup(const std::string & id, const std::string & file, hash *const h, const std::vector<mirror *> & mirrors, const offset_t size, const int block_size);
+	storage_backend_dedup(const std::string & id, const std::string & file, hash *const h, compresser *const c, const std::vector<mirror *> & mirrors, const offset_t size, const int block_size);
 	virtual ~storage_backend_dedup();
 
 	offset_t get_size() const override;

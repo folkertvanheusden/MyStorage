@@ -186,10 +186,17 @@ void storage_backend::get_data(const offset_t offset, const uint32_t size, uint8
 			}
 
 			*out = reinterpret_cast<uint8_t *>(realloc(*out, out_size + current_size));
-			memcpy(&(*out)[out_size], &temp[block_offset], current_size);
-			out_size += current_size;
 
-			free(temp);
+			if (temp) {
+				memcpy(&(*out)[out_size], &temp[block_offset], current_size);
+
+				free(temp);
+			}
+			else {
+				memset(&(*out)[out_size], 0, current_size);
+			}
+
+			out_size += current_size;
 		}
 
 		work_offset += current_size;
@@ -232,6 +239,9 @@ void storage_backend::put_data(const offset_t offset, const block & b, int *cons
 				*err = EINVAL;
 				break;
 			}
+
+			if (!temp)  // e.g. when new block
+				temp = reinterpret_cast<uint8_t *>(calloc(1, block_size));
 		}
 
 		memcpy(&temp[block_offset], input, current_size);

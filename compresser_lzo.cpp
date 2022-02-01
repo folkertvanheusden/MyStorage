@@ -15,6 +15,11 @@ compresser_lzo::~compresser_lzo()
 {
 }
 
+std::string compresser_lzo::get_type() const
+{
+	return "LZO";
+}
+
 YAML::Node compresser_lzo::emit_configuration() const
 {
         YAML::Node out;
