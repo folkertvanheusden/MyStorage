@@ -43,3 +43,13 @@ const YAML::Node yaml_get_yaml_node(const YAML::Node & node, const std::string &
 		throw myformat("yaml_get_yaml_node: item \"%s\" (%s) is missing in YAML file", key.c_str(), description.c_str());
 	}
 }
+
+bool yaml_get_bool(const YAML::Node & node, const std::string & key, const std::string & description)
+{
+	try {
+		return node[key].as<bool>();
+	}
+	catch(YAML::InvalidNode & yin) {
+		throw myformat("yaml_get_bool: item \"%s\" (%s) is missing in YAML file", key.c_str(), description.c_str());
+	}
+}

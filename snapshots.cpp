@@ -16,7 +16,7 @@
 #include "yaml-helpers.h"
 
 
-snapshot_state::snapshot_state(storage_backend *const src, const std::string & complete_filename, const int block_size) : src(src), complete_filename(complete_filename), block_size(block_size)
+snapshot_state::snapshot_state(storage_backend *const src, const std::string & complete_filename, const int block_size, const bool sparse_files) : src(src), complete_filename(complete_filename), block_size(block_size)
 {
 	// target file
 	fd = open(complete_filename.c_str(), O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
@@ -33,6 +33,10 @@ snapshot_state::snapshot_state(storage_backend *const src, const std::string & c
 	if (bitmap == nullptr)
 		throw myformat("snapshot_state(%s): failed to allocate bitmap memory: %s", complete_filename.c_str(), strerror(errno));
 
+	// sparse files helper block
+	if (sparse_files)
+		sparse_block_compare = reinterpret_cast<uint8_t *>(calloc(1, block_size));
+
 	th = new std::thread(std::ref(*this));
 }
 
@@ -44,6 +48,8 @@ snapshot_state::~snapshot_state()
 		th->join();
 		delete th;
 	}
+
+	free(sparse_block_compare);
 
 	free(bitmap);
 }
@@ -65,12 +71,16 @@ bool snapshot_state::get_set_block_state(const block_nr_t block_nr)
 
 	std::lock_guard<std::mutex> lck(lock);
 
-	bool rc = !(bitmap[bitmap_idx] & mask);
-	bitmap[bitmap_idx] |= mask;
+	bool unwritten = !(bitmap[bitmap_idx] & mask);
 
-	if (copy_block(block_nr) == false) {
-		dolog(ll_error, "snapshot_state::get_set_block_state(%s): failed to copy block %ld to snapshot", complete_filename.c_str(), block_nr);
-		return false;
+	if (unwritten) {
+		bitmap[bitmap_idx] |= mask;
+
+		if (copy_block(block_nr) == false) {
+
+			dolog(ll_error, "snapshot_state::get_set_block_state(%s): failed to copy block %ld to snapshot", complete_filename.c_str(), block_nr);
+			return false;
+		}
 	}
 
 	return true;
@@ -89,10 +99,13 @@ bool snapshot_state::copy_block(const block_nr_t block_nr)
 		return false;
 	}
 
-	// TODO introduce phantom-blocks?
-
 	const uint8_t *p = b->get_data();
 	size_t         todo = b->get_size();
+
+	if (sparse_block_compare && memcmp(sparse_block_compare, p, block_size) == 0) {
+		delete b;
+		return true;
+	}
 
 	if (todo != block_size) {
 		dolog(ll_error, "snapshot_state::copy_block(%s): data-block is %ld bytes, expecting %d", complete_filename.c_str(), todo, block_size);
@@ -163,7 +176,7 @@ void snapshot_state::operator()()
 	copy_finished = true;
 }
 
-snapshots::snapshots(const std::string & id, const std::string & storage_directory, const std::string & filename_template, storage_backend *const sb) : storage_backend(id, sb->get_block_size(), { }), storage_directory(storage_directory), filename_template(filename_template), sb(sb)
+snapshots::snapshots(const std::string & id, const std::string & storage_directory, const std::string & filename_template, storage_backend *const sb, const bool sparse_files) : storage_backend(id, sb->get_block_size(), { }), storage_directory(storage_directory), filename_template(filename_template), sb(sb), sparse_files(sparse_files)
 {
 }
 
@@ -190,7 +203,7 @@ std::optional<std::string> snapshots::trigger_snapshot()
 	snapshot_state *ss = nullptr;
 
 	try {
-		ss = new snapshot_state(sb, buffer, block_size);
+		ss = new snapshot_state(sb, buffer, block_size, sparse_files);
 
 		lock.lock();
 		running_snapshots.push_back(ss);
@@ -296,8 +309,9 @@ snapshots * snapshots::load_configuration(const YAML::Node & node)
 	std::string storage_directory = yaml_get_string(cfg, "storage-directory", "directory where snapshots are placed");
 	std::string filename_template = yaml_get_string(cfg, "filename-template", "template of snapshot filenames (see \"man strftime\")");
 	storage_backend *sb = storage_backend::load_configuration(cfg["storage-backend"]);
+	bool sparse_files = yaml_get_bool(cfg, "sparse-files", "create snapshots with holes where possible (to reduce diskspace)");
 
-	return new snapshots(id, storage_directory, filename_template, sb);
+	return new snapshots(id, storage_directory, filename_template, sb, sparse_files);
 }
 
 YAML::Node snapshots::emit_configuration() const
@@ -307,6 +321,7 @@ YAML::Node snapshots::emit_configuration() const
 	out_cfg["storage-directory"] = storage_directory;
 	out_cfg["filename-template"] = filename_template;
 	out_cfg["storage-backend"] = sb->emit_configuration();
+	out_cfg["sparse-files"] = sparse_files;
 
 	YAML::Node out;
 	out["type"] = "snapshots";

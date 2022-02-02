@@ -22,12 +22,13 @@ private:
 	std::thread      *th { nullptr };
 	std::atomic_bool  stop_flag { false };
 	std::atomic_bool  copy_finished { false };
+	uint8_t          *sparse_block_compare { nullptr };
 
 	bool get_set_block_state(const block_nr_t block_nr);
 	bool copy_block(const block_nr_t block_nr);
 
 public:
-	snapshot_state(storage_backend *const src, const std::string & complete_filename, const int block_size);
+	snapshot_state(storage_backend *const src, const std::string & complete_filename, const int block_size, const bool sparse_files);
 	virtual ~snapshot_state();
 
 	bool has_finished() const;
@@ -45,6 +46,7 @@ private:
 	const std::string             storage_directory;
 	const std::string             filename_template;
 	storage_backend        *const sb { nullptr };
+	const bool                    sparse_files { true };
 	std::vector<snapshot_state *> running_snapshots;
 	std::mutex                    lock;  // for running_snapshots
 	std::thread                  *th { nullptr };
@@ -59,7 +61,7 @@ protected:
 
 public:
 	// filename_template: %-escapes are from strftime
-	snapshots(const std::string & id, const std::string & storage_directory, const std::string & filename_template, storage_backend *const sb);
+	snapshots(const std::string & id, const std::string & storage_directory, const std::string & filename_template, storage_backend *const sb, const bool sparse_files);
 	virtual ~snapshots();
 
 	std::optional<std::string> trigger_snapshot();

@@ -197,7 +197,7 @@ void test_integrities()
 
 		storage_backend_file sbf_data("data", test_data_file, block_size, { });
 
-		snapshots s("snapshot", ".", "snapshut.img", &sbf_data);
+		snapshots s("snapshot", ".", "snapshut.img", &sbf_data, true);
 
 		test_integrity(&s);
 
