@@ -87,13 +87,11 @@ bool storage_backend_file::can_do_multiple_blocks() const
 bool storage_backend_file::get_multiple_blocks(const block_nr_t block_nr, const block_nr_t blocks_to_do, uint8_t *to)
 {
 	const offset_t offset = block_nr * block_size;
-	if (lseek(fd, offset, SEEK_SET) == -1) {
-		dolog(ll_error, "storage_backend_file::get_multiple_blocks(%s): failed to seek in file to offset %ld", id.c_str(), offset);
-		return false;
-	}
+	const size_t s = block_size * blocks_to_do;
 
-	int rc = READ(fd, to, block_size * blocks_to_do);
-	if (rc != ssize_t(block_size * blocks_to_do)) {
+	int rc = PREAD(fd, to, s, offset);
+
+	if (rc != ssize_t(s)) {
 		dolog(ll_error, "storage_backend_file::get_multiple_blocks(%s): failed to read %ld blocks from file at offset %ld: expected %d, got %d", id.c_str(), blocks_to_do, offset, block_size, rc);
 		return false;
 	}
@@ -110,18 +108,13 @@ bool storage_backend_file::get_block(const block_nr_t block_nr, uint8_t **const 
 		return false;
 	}
 
-	if (lseek(fd, offset, SEEK_SET) == -1) {
-		dolog(ll_error, "storage_backend_file::get_block(%s): failed to seek in file to offset %ld", id.c_str(), offset);
-		return false;
-	}
-
 	*data = static_cast<uint8_t *>(malloc(block_size));
 	if (!*data) {
 		dolog(ll_error, "storage_backend_file::get_block(%s): cannot allocated %u bytes of memory", id.c_str(), size);
 		return false;
 	}
 
-	int rc = READ(fd, *data, block_size);
+	int rc = PREAD(fd, *data, block_size, offset);
 	if (rc != block_size) {
 		free(*data);
 		dolog(ll_error, "storage_backend_file::get_block(%s): failed to read from file at offset %ld: expected %d, got %d (%d - %s)", id.c_str(), offset, block_size, rc, errno, strerror(errno));
@@ -134,12 +127,8 @@ bool storage_backend_file::get_block(const block_nr_t block_nr, uint8_t **const 
 bool storage_backend_file::put_block(const block_nr_t block_nr, const uint8_t *const data)
 {
 	const offset_t offset = block_nr * block_size;
-	if (lseek(fd, offset, SEEK_SET) == -1) {
-		dolog(ll_error, "storage_backend_file::put_block(%s): failed to seek in file to offset %ld", id.c_str(), offset);
-		return false;
-	}
 
-	if (WRITE(fd, data, block_size) != block_size) {
+	if (PWRITE(fd, data, block_size, offset) != block_size) {
 		dolog(ll_error, "storage_backend_file::put_block(%s): failed to write (%zu bytes) to file at offset %lu", id.c_str(), block_size, offset);
 		return false;
 	}
@@ -172,12 +161,6 @@ bool storage_backend_file::trim_zero(const offset_t offset, const uint32_t len, 
 		*err = errno;
 	}
 #else
-	if (lseek(fd, offset, SEEK_SET) == -1) {
-		*err = errno;
-		dolog(ll_error, "storage_backend_file::trim(%s): failed to seek in file to offset %ld", id.c_str(), offset);
-		return false;
-	}
-
 	uint8_t buffer[4096] { 0 };
 
 	uint32_t work_len = len;
@@ -185,14 +168,21 @@ bool storage_backend_file::trim_zero(const offset_t offset, const uint32_t len, 
 	while(work_len > 0) {
 		uint32_t current_len = std::min(uint32_t(sizeof buffer), work_len);
 
-		if (WRITE(fd, buffer, current_len) != current_len) {
+		ssize_t rc = PWRITE(fd, buffer, current_len, current_offset);
+
+		if (rc == -1) {
 			*err = errno;
 			dolog(ll_error, "storage_backend_file::trim(%s): failed to write (%zu bytes) to file at offset %lu", id.c_str(), current_len, current_offset);
 			return false;
 		}
+		else if (rc == 0) {
+			*err = errno;
+			dolog(ll_error, "storage_backend_file::trim(%s): wrote 0 bytes to file at offset %lu: disk full?", id.c_str(), current_offset);
+			return false;
+		}
 
-		work_len -= current_len;
-		current_offset += current_len;
+		work_len -= rc;
+		current_offset += rc;
 	}
 #endif
 

@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "io.h"
 #include "logging.h"
 #include "snapshots.h"
 #include "str.h"
@@ -113,23 +114,17 @@ bool snapshot_state::copy_block(const block_nr_t block_nr)
 		return false;
 	}
 
-	while(todo > 0) {
-		ssize_t rc = pwrite(fd, p, todo, off);
+	ssize_t rc = PWRITE(fd, p, todo, off);
 
-		if (rc == -1) {
-			dolog(ll_error, "snapshot_state::copy_block(%s): failed to write block to snapshot: %s", complete_filename.c_str(), strerror(errno));
-			delete b;
-			return false;
-		}
-		else if (rc == 0) {
-			dolog(ll_error, "snapshot_state::copy_block(%s): write 0 bytes to snapshot: disk full?", complete_filename.c_str());
-			delete b;
-			return false;
-		}
-
-		todo -= rc;
-		off += rc;
-		p += rc;
+	if (rc == -1) {
+		dolog(ll_error, "snapshot_state::copy_block(%s): failed to write block to snapshot: %s", complete_filename.c_str(), strerror(errno));
+		delete b;
+		return false;
+	}
+	else if (rc == 0) {
+		dolog(ll_error, "snapshot_state::copy_block(%s): write 0 bytes to snapshot: disk full?", complete_filename.c_str());
+		delete b;
+		return false;
 	}
 
 	delete b;
