@@ -23,6 +23,8 @@ private:
 	std::atomic_bool  stop_flag { false };
 	std::atomic_bool  copy_finished { false };
 	uint8_t          *sparse_block_compare { nullptr };
+	block_nr_t        block_working_on { 0 };
+	block_nr_t        n_blocks { 0 };
 
 	bool get_set_block_state(const block_nr_t block_nr);
 	bool copy_block(const block_nr_t block_nr);
@@ -34,6 +36,9 @@ public:
 	bool has_finished() const;
 
 	std::string get_filename() const;
+
+	// current, n
+	std::pair<block_nr_t, block_nr_t> get_progress() const;
 
 	bool put_block(const block_nr_t block_nr);
 

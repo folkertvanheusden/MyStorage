@@ -38,6 +38,8 @@ snapshot_state::snapshot_state(storage_backend *const src, const std::string & c
 	if (sparse_files)
 		sparse_block_compare = reinterpret_cast<uint8_t *>(calloc(1, block_size));
 
+	n_blocks = (src->get_size() + block_size - 1) / block_size;
+
 	th = new std::thread(std::ref(*this));
 }
 
@@ -142,24 +144,26 @@ bool snapshot_state::put_block(const block_nr_t block_nr)
 	return true;
 }
 
+std::pair<block_nr_t, block_nr_t> snapshot_state::get_progress() const
+{
+	return { block_working_on, n_blocks };
+}
+
 void snapshot_state::operator()()
 {
-	block_nr_t       block_nr = 0;
-	const block_nr_t n_blocks = (src->get_size() + block_size - 1) / block_size;
-
 	dolog(ll_debug, "snapshot_state::operator: snapshot size: %ld bytes, %ld blocks (block size: %d)", src->get_size(), n_blocks, block_size);
 
-	while(!stop_flag && block_nr < n_blocks) {
-		if (get_set_block_state(block_nr) == false) {
+	while(!stop_flag && block_working_on < n_blocks) {
+		if (get_set_block_state(block_working_on) == false) {
 			dolog(ll_error, "snapshot_state::operator(%s): failed to copy block to snapshot", complete_filename.c_str());
 			break;
 		}
 
-		block_nr++;
+		block_working_on++;
 	}
 
-	if (block_nr != n_blocks)
-		dolog(ll_error, "snapshot_state::operator(%s): not all data was snapshotted! (%ld of %ld blocks)", complete_filename.c_str(), block_nr, n_blocks);
+	if (block_working_on != n_blocks)
+		dolog(ll_error, "snapshot_state::operator(%s): not all data was snapshotted! (%ld of %ld blocks)", complete_filename.c_str(), block_working_on, n_blocks);
 
 	if (fsync(fd) == -1)
 		dolog(ll_error, "snapshot_state::operator(%s): failed to fsync snapshot: %s", complete_filename.c_str(), strerror(errno));
