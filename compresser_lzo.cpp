@@ -30,6 +30,8 @@ YAML::Node compresser_lzo::emit_configuration() const
 
 compresser_lzo * compresser_lzo::load_configuration(const YAML::Node & node)
 {
+	dolog(ll_info, " * compresser_lzo::load_configuration");
+
 	return new compresser_lzo();
 }
 

@@ -47,6 +47,8 @@ socket_listener_unixdomain::~socket_listener_unixdomain()
 
 socket_listener_unixdomain * socket_listener_unixdomain::load_configuration(const YAML::Node & node)
 {
+	dolog(ll_info, " * socket_listener_unixdomain::load_configuration");
+
 	const YAML::Node cfg = node["cfg"];
 
 	std::string path = cfg["path"].as<std::string>();

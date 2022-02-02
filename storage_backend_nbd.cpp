@@ -34,6 +34,8 @@ storage_backend_nbd::~storage_backend_nbd()
 
 storage_backend_nbd * storage_backend_nbd::load_configuration(const YAML::Node & node)
 {
+	dolog(ll_info, " * socket_backend_nbd::load_configuration");
+
 	const YAML::Node cfg = node["cfg"];
 
 	std::string id = yaml_get_string(cfg, "id", "name of this backend");

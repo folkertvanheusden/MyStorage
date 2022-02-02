@@ -1,5 +1,6 @@
 #include <yaml-cpp/yaml.h>
 
+#include "logging.h"
 #include "server.h"
 #include "server_aoe.h"
 #include "server_nbd.h"
@@ -16,6 +17,8 @@ server::~server()
 
 server * server::load_configuration(const YAML::Node & node, const std::vector<storage_backend *> & storage)
 {
+	dolog(ll_info, " * server::load_configuration");
+
 	std::string type = str_tolower(node["type"].as<std::string>());
 
 	if (type == "nbd")

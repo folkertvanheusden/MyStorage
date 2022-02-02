@@ -3,6 +3,7 @@
 #include "compresser_zlib.h"
 #include "error.h"
 #include "logging.h"
+#include "yaml-helpers.h"
 
 
 compresser_zlib::compresser_zlib(const int compression_level) : compression_level(compression_level)
@@ -32,9 +33,11 @@ YAML::Node compresser_zlib::emit_configuration() const
 
 compresser_zlib * compresser_zlib::load_configuration(const YAML::Node & node)
 {
-	const YAML::Node cfg = node["cfg"];
+	dolog(ll_info, " * compresser_zlib::load_configuration");
 
-	int compression_level = cfg["compression-level"].as<int>();
+	const YAML::Node cfg = yaml_get_yaml_node(node, "cfg", "configuration of module");
+
+	int compression_level = yaml_get_int(cfg, "compression-level", "compression level: 0-9");
 
 	return new compresser_zlib(compression_level);
 }

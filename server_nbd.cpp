@@ -72,6 +72,8 @@ nbd::~nbd()
 
 nbd * nbd::load_configuration(const YAML::Node & node, const std::vector<storage_backend *> & storage)
 {
+	dolog(ll_info, " * nbd::load_configuration");
+
 	const YAML::Node cfg = node["cfg"];
 
 	std::vector<storage_backend *> sbs;

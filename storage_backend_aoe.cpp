@@ -60,6 +60,8 @@ YAML::Node storage_backend_aoe::emit_configuration() const
 
 storage_backend_aoe * storage_backend_aoe::load_configuration(const YAML::Node & node)
 {
+	dolog(ll_info, " * socket_backend_aoe::load_configuration");
+
 	const YAML::Node cfg = node["cfg"];
 
 	std::string name = cfg["id"].as<std::string>();

@@ -53,6 +53,8 @@ socket_listener_ipv4::~socket_listener_ipv4()
 
 socket_listener_ipv4 * socket_listener_ipv4::load_configuration(const YAML::Node & node)
 {
+	dolog(ll_info, " * socket_listener_ipv4::load_configuration");
+
 	const YAML::Node cfg = node["cfg"];
 
 	std::string listen_addr = cfg["listen-addr"].as<std::string>();

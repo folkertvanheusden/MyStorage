@@ -16,6 +16,8 @@ mirror::~mirror()
 
 mirror * mirror::load_configuration(const YAML::Node & node)
 {
+	dolog(ll_info, " * mirror::load_configuration");
+
         const std::string type = str_tolower(node["type"].as<std::string>());
 
 	if (type == "mirror-storage-backend")

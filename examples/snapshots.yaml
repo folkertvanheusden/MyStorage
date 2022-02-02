@@ -26,7 +26,7 @@ storage:
           mirrors:
             []
           block-size: 65536
-          size: 5368709120
+          size: 5G
       sparse-files: true
 logging:
   file: mystorage.log

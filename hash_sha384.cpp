@@ -27,6 +27,8 @@ YAML::Node hash_sha384::emit_configuration() const
 
 hash_sha384 * hash_sha384::load_configuration(const YAML::Node & node)
 {
+	dolog(ll_info, " * hash_sha384::load_configuration");
+
 	return new hash_sha384();
 }
 

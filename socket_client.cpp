@@ -24,6 +24,8 @@ int socket_client::get_fd()
 
 socket_client * socket_client::load_configuration(const YAML::Node & node)
 {
+	dolog(ll_info, " * socket_client::load_configuration");
+
         const std::string type = str_tolower(node["type"].as<std::string>());
 
 	if (type == "socket-client-ipv4")

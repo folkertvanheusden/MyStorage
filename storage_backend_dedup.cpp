@@ -52,9 +52,11 @@ storage_backend_dedup::~storage_backend_dedup()
 
 storage_backend_dedup * storage_backend_dedup::load_configuration(const YAML::Node & node)
 {
-	const YAML::Node cfg = node["cfg"];
+	dolog(ll_info, " * socket_backend_dedup::load_configuration");
 
-	std::string id = cfg["id"].as<std::string>();
+	const YAML::Node cfg = yaml_get_yaml_node(node, "cfg", "module configuration");
+
+	std::string id = yaml_get_string(cfg, "id", "module identifier");
 
 	std::vector<mirror *> mirrors;
 	YAML::Node y_mirrors = cfg["mirrors"];
@@ -63,7 +65,7 @@ storage_backend_dedup * storage_backend_dedup::load_configuration(const YAML::No
 
 	std::string file = yaml_get_string(cfg, "file", "deduplication store filename");
 
-	offset_t size = yaml_get_uint64_t(cfg, "size", "size (in bytes) of the storage");
+	offset_t size = yaml_get_uint64_t(cfg, "size", "size (in bytes) of the dedup-storage", true);
 
 	int block_size = yaml_get_int(cfg, "block-size", "block size of store (bigger is faster, smaller is better de-duplication)");
 

@@ -24,6 +24,8 @@ socket_client_ipv4::~socket_client_ipv4()
 
 socket_client_ipv4 * socket_client_ipv4::load_configuration(const YAML::Node & node)
 {
+	dolog(ll_info, " * socket_client_ipv4::load_configuration");
+
 	const YAML::Node cfg = node["cfg"];
 
 	std::string hostname = cfg["hostname"].as<std::string>();

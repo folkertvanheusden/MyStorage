@@ -7,6 +7,7 @@
 #include "hash_sha384.h"
 #include "logging.h"
 #include "str.h"
+#include "yaml-helpers.h"
 
 
 hash::hash()
@@ -19,12 +20,14 @@ hash::~hash()
 
 hash * hash::load_configuration(const YAML::Node & node)
 {
-        const std::string type = str_tolower(node["type"].as<std::string>());
+	dolog(ll_info, " * hash::load_configuration");
+
+	const std::string type = str_tolower(yaml_get_string(node, "type", "type of hash function"));
 
 	if (type == "hash-sha384")
 		return hash_sha384::load_configuration(node);
 
-	dolog(ll_error, "hash::load_configuration: hash type \"%s\" is not known", type.c_str());
+	dolog(ll_error, "hash::load_configuration: hash function \"%s\" is not known", type.c_str());
 
 	return nullptr;
 }

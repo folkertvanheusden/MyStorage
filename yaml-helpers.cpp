@@ -24,9 +24,27 @@ int yaml_get_int(const YAML::Node & node, const std::string & key, const std::st
 	}
 }
 
-uint64_t yaml_get_uint64_t(const YAML::Node & node, const std::string & key, const std::string & description)
+uint64_t yaml_get_uint64_t(const YAML::Node & node, const std::string & key, const std::string & description, const bool units)
 {
 	try {
+		if (units) {
+			std::string value = str_tolower(node[key].as<std::string>());
+
+			char unit = value.at(value.size() - 1);
+			uint64_t mul = 1;
+
+			if (unit == 'g')
+				mul = 1024 * 1024 * 1024;
+			else if (unit == 'm')
+				mul = 1024 * 1024;
+			else if (unit == 'k')
+				mul = 1024;
+			else if (unit >= 'a' && unit <= 'z')
+				throw myformat("yaml_get_int: unit \"%c\" is not known/supported", unit);
+
+			return uint64_t(atoll(value.c_str())) * mul;
+		}
+
 		return node[key].as<uint64_t>();
 	}
 	catch(YAML::InvalidNode & yin) {

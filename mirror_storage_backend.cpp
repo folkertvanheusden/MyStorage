@@ -34,6 +34,8 @@ YAML::Node mirror_storage_backend::emit_configuration() const
 
 mirror_storage_backend * mirror_storage_backend::load_configuration(const YAML::Node & node)
 {
+	dolog(ll_info, " * mirror_storage_backend::load_configuration");
+
 	const YAML::Node cfg = node["cfg"];
 
 	std::string id = cfg["id"].as<std::string>();

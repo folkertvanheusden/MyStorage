@@ -304,6 +304,8 @@ void snapshots::put_data(const offset_t offset, const std::vector<uint8_t> & d, 
 
 snapshots * snapshots::load_configuration(const YAML::Node & node)
 {
+	dolog(ll_info, " * snapshots::load_configuration");
+
 	const YAML::Node cfg = node["cfg"];
 
 	std::string id = yaml_get_string(cfg, "id", "id of snapshot object");

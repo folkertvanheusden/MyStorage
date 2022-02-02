@@ -15,6 +15,8 @@ socket_listener::~socket_listener()
 
 socket_listener * socket_listener::load_configuration(const YAML::Node & node)
 {
+	dolog(ll_info, " * socket_listener::load_configuration");
+
         const std::string type = str_tolower(node["type"].as<std::string>());
 
 	if (type == "socket-listener-ipv4")

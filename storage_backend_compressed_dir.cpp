@@ -60,6 +60,8 @@ YAML::Node storage_backend_compressed_dir::emit_configuration() const
 
 storage_backend_compressed_dir * storage_backend_compressed_dir::load_configuration(const YAML::Node & node)
 {
+	dolog(ll_info, " * socket_backend_compressed_dir::load_configuration");
+
 	const YAML::Node cfg = node["cfg"];
 
 	std::string id = cfg["id"].as<std::string>();

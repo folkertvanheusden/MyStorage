@@ -1,3 +1,4 @@
+#include "logging.h"
 #include "socket_client_ipv6.h"
 
 
@@ -11,6 +12,8 @@ socket_client_ipv6::~socket_client_ipv6()
 
 socket_client_ipv6 * socket_client_ipv6::load_configuration(const YAML::Node & node)
 {
+	dolog(ll_info, " * socket_client_ipv6::load_configuration");
+
 	const YAML::Node cfg = node["cfg"];
 
 	std::string target = cfg["target"].as<std::string>();

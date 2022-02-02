@@ -7,6 +7,7 @@
 #include "logging.h"
 #include "str.h"
 #include "time.h"
+#include "yaml-helpers.h"
 
 
 journal::journal(const std::string & id, storage_backend *const data, storage_backend *const journal_, const unsigned int flush_interval) : storage_backend(id, data->get_block_size(), { }), data(data), journal_(journal_), flush_interval(flush_interval)
@@ -621,14 +622,16 @@ YAML::Node journal::emit_configuration() const
 
 journal * journal::load_configuration(const YAML::Node & node)
 {
-	const YAML::Node cfg = node["cfg"];
+	dolog(ll_info, " * journal::load_configuration");
 
-	std::string id = cfg["id"].as<std::string>();
+	const YAML::Node cfg = yaml_get_yaml_node(node, "cfg", "journal configuration");
+
+	std::string id = yaml_get_string(cfg, "id", "module id");
 
 	storage_backend *sb_data = storage_backend::load_configuration(cfg["storage-backend_data"]);
 	storage_backend *sb_journal = storage_backend::load_configuration(cfg["storage-backend_journal"]);
 
-	int flush_interval = cfg["flush-interval"].as<int>();
+	int flush_interval = yaml_get_int(cfg, "flush-interval", "after how many milliseconds (max) to flush journalled blocks to disk");
 
 	return new journal(id, sb_data, sb_journal, flush_interval);
 }

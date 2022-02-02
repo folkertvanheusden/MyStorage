@@ -3,6 +3,7 @@
 #include "compresser_zlib.h"
 #include "logging.h"
 #include "str.h"
+#include "yaml-helpers.h"
 
 
 compresser::compresser()
@@ -15,7 +16,9 @@ compresser::~compresser()
 
 compresser * compresser::load_configuration(const YAML::Node & node)
 {
-        const std::string type = str_tolower(node["type"].as<std::string>());
+	dolog(ll_info, " * compresser::load_configuration");
+
+	const std::string type = str_tolower(yaml_get_string(node, "type", "type of compresser"));
 
 	if (type == "compresser-lzo")
 		return compresser_lzo::load_configuration(node);

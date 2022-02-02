@@ -29,6 +29,8 @@ storage_backend::~storage_backend()
 
 storage_backend * storage_backend::load_configuration(const YAML::Node & node)
 {
+	dolog(ll_info, " * socket_backend::load_configuration");
+
         std::string type;
 
 	try {

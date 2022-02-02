@@ -34,13 +34,13 @@ storage:
 # maximum block size that will be used when talking to
 # remote nbd server
           block-size: 131072
-          size: 10737418240
+          size: 10G
       storage-backend_journal:
 # here we store the journalling in a local file
         type: storage-backend-file
         cfg:
           id: journal-journal
-          size: 268435456
+          size: 256M
           file: journal.dat
           mirrors:
             []

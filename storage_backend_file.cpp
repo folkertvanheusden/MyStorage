@@ -11,9 +11,10 @@
 #include "storage_backend_file.h"
 #include "str.h"
 #include "types.h"
+#include "yaml-helpers.h"
 
 
-storage_backend_file::storage_backend_file(const std::string & id, const std::string & file, const offset_t size, const int block_size, const std::vector<mirror *> & mirrors) : storage_backend(id, block_size, mirrors), file(file), size(size)
+storage_backend_file::storage_backend_file(const std::string & id, const std::string & file, const offset_t size, const int block_size, const std::vector<mirror *> & mirrors) : storage_backend(id, block_size, mirrors), size(size), file(file)
 {
 	fd = open(file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
 	if (fd == -1)
@@ -46,18 +47,22 @@ storage_backend_file::~storage_backend_file()
 
 storage_backend_file * storage_backend_file::load_configuration(const YAML::Node & node)
 {
-	const YAML::Node cfg = node["cfg"];
+	dolog(ll_info, " * socket_backend_file::load_configuration");
 
-	std::string id = cfg["id"].as<std::string>();
+	const YAML::Node cfg = yaml_get_yaml_node(node, "cfg", "module configuration");
+
+	std::string id = yaml_get_string(cfg, "id", "module identifier");
 
 	std::vector<mirror *> mirrors;
 	YAML::Node y_mirrors = cfg["mirrors"];
 	for(YAML::const_iterator it = y_mirrors.begin(); it != y_mirrors.end(); it++)
 		mirrors.push_back(mirror::load_configuration(it->as<YAML::Node>()));
 
-	std::string file = cfg["file"].as<std::string>();
-	int block_size = cfg["block-size"].as<int>();
-	offset_t size = cfg["size"].as<uint64_t>();
+	std::string file = yaml_get_string(cfg, "file", "deduplication store filename");
+
+	offset_t size = yaml_get_uint64_t(cfg, "size", "size (in bytes) of the file based-storage", true);
+
+	int block_size = yaml_get_int(cfg, "block-size", "block size of store");
 
 	return new storage_backend_file(id, file, size, block_size, mirrors);
 }

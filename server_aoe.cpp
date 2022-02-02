@@ -67,6 +67,8 @@ YAML::Node aoe::emit_configuration() const
 
 aoe * aoe::load_configuration(const YAML::Node & node, const std::vector<storage_backend *> & storage)
 {
+	dolog(ll_info, " * aoe::load_configuration");
+
 	const YAML::Node cfg = node["cfg"];
 
 	std::string mac = cfg["my-mac"].as<std::string>();
