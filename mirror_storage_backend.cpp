@@ -4,6 +4,7 @@
 #include "mirror_storage_backend.h"
 #include "storage_backend.h"
 #include "types.h"
+#include "yaml-helpers.h"
 
 
 mirror_storage_backend::mirror_storage_backend(const std::string & id, storage_backend *const sb) : mirror(id), sb(sb)
@@ -36,9 +37,9 @@ mirror_storage_backend * mirror_storage_backend::load_configuration(const YAML::
 {
 	dolog(ll_info, " * mirror_storage_backend::load_configuration");
 
-	const YAML::Node cfg = node["cfg"];
+	const YAML::Node cfg = yaml_get_yaml_node(node, "cfg", "mirror configuration");
 
-	std::string id = cfg["id"].as<std::string>();
+	std::string id = yaml_get_string(cfg, "id", "module id");
 
 	storage_backend *sb = storage_backend::load_configuration(cfg["storage-backend"]);
 
