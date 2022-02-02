@@ -40,9 +40,7 @@ storage:
         type: storage-backend-file
         cfg:
           id: journal-journal
-# the size of the journal is determined by the
-# size of journal.dat - you need to create it
-# first yourself (by e.g. 'dd' or 'truncate')
+          size: 268435456
           file: journal.dat
           mirrors:
             []

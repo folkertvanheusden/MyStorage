@@ -22,13 +22,11 @@ storage:
         type: storage-backend-file
         cfg:
           id: storage
-# the size of the storage is determined by the
-# size of storage.dat - you need to create it
-# first yourself (by e.g. 'dd' or 'truncate')
           file: storage.dat
           mirrors:
             []
           block-size: 65536
+          size: 5368709120
       sparse-files: true
 logging:
   file: mystorage.log

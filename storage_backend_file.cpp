@@ -10,11 +10,12 @@
 #include "logging.h"
 #include "storage_backend_file.h"
 #include "str.h"
+#include "types.h"
 
 
-storage_backend_file::storage_backend_file(const std::string & id, const std::string & file, const int block_size, const std::vector<mirror *> & mirrors) : storage_backend(id, block_size, mirrors), file(file)
+storage_backend_file::storage_backend_file(const std::string & id, const std::string & file, const offset_t size, const int block_size, const std::vector<mirror *> & mirrors) : storage_backend(id, block_size, mirrors), file(file), size(size)
 {
-	fd = open(file.c_str(), O_RDWR);
+	fd = open(file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
 	if (fd == -1)
 		throw myformat("storage_backend_file(%s): failed to access \"%s\": %s", id.c_str(), file.c_str(), strerror(errno));
 
@@ -22,10 +23,15 @@ storage_backend_file::storage_backend_file(const std::string & id, const std::st
 	if (fstat(fd, &st) == -1)
 		throw myformat("storage_backend_file(%s): failed to retrieve meta data from \"%s\": %s", id.c_str(), file.c_str(), strerror(errno));
 
-	if (st.st_size & 4095)
-		throw myformat("storage_backend_file(%s): file not a multiple of 4096 in size (%ld)", id.c_str(), st.st_size);
+	if (st.st_size == 0) {
+		dolog(ll_info, "storage_backend_file(%s): size was 0 bytes, new backend file?", id.c_str());
 
-	size = st.st_size;
+		if (ftruncate(fd, size) == -1)
+			throw myformat("storage_backend_file(%s): failed to set size of backend file", id.c_str());
+	}
+	else if (size > st.st_size) {
+		throw myformat("storage_backend_file(%s): on-disk file not big enough", id.c_str());
+	}
 
 	dolog(ll_debug, "storage_backend_file(%s): size is %zu bytes", id.c_str(), size);
 
@@ -51,8 +57,9 @@ storage_backend_file * storage_backend_file::load_configuration(const YAML::Node
 
 	std::string file = cfg["file"].as<std::string>();
 	int block_size = cfg["block-size"].as<int>();
+	offset_t size = cfg["size"].as<uint64_t>();
 
-	return new storage_backend_file(id, file, block_size, mirrors);
+	return new storage_backend_file(id, file, size, block_size, mirrors);
 }
 
 YAML::Node storage_backend_file::emit_configuration() const
@@ -66,6 +73,7 @@ YAML::Node storage_backend_file::emit_configuration() const
 	out_cfg["file"] = file;
 	out_cfg["mirrors"] = out_mirrors;
 	out_cfg["block-size"] = block_size;
+	out_cfg["size"] = size;
 
 	YAML::Node out;
 	out["type"] = "storage-backend-file";

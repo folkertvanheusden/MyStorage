@@ -145,7 +145,7 @@ void test_integrities()
 
 		make_file(test_data_file, data_size);  // 1GB data file
 
-		storage_backend_file sbf_data("data", test_data_file, block_size, { });
+		storage_backend_file sbf_data("data", test_data_file, data_size, block_size, { });
 
 		test_integrity(&sbf_data);
 
@@ -193,9 +193,7 @@ void test_integrities()
 		constexpr offset_t data_size = 5l * 1024l * 1024l * 1024l;
 		constexpr int block_size = 4096;
 
-		make_file(test_data_file, data_size);  // 1GB data file
-
-		storage_backend_file sbf_data("data", test_data_file, block_size, { });
+		storage_backend_file sbf_data("data", test_data_file, data_size, block_size, { });
 
 		snapshots s("snapshot", ".", "snapshut.img", &sbf_data, true);
 
@@ -219,12 +217,13 @@ void test_journal()
 		constexpr uint64_t put_n = data_size / block_size;
 
 		make_file(test_data_file, data_size);  // 1GB data file
-		make_file(test_journal_file.c_str(), 1024 * 1024);  // 1MB journal file, 4 kB header
+
+		constexpr offset_t journal_size = 1024 * 1024;
 
 		// test if what goes in, goes out
 		dolog(ll_info, " * 001 smoke test");
-		storage_backend_file sbf_data("data", test_data_file, block_size, { });
-		storage_backend_file sbf_journal("journal", test_journal_file, block_size, { });
+		storage_backend_file sbf_data("data", test_data_file, data_size, block_size, { });
+		storage_backend_file sbf_journal("journal", test_journal_file, journal_size, block_size, { });
 
 		{
 			journal *j = new journal("journal", &sbf_data, &sbf_journal, 5);
