@@ -16,33 +16,49 @@
 
 socket_listener_unixdomain::socket_listener_unixdomain(const std::string & path) : path(path)
 {
+}
+
+socket_listener_unixdomain::~socket_listener_unixdomain()
+{
+}
+
+bool socket_listener_unixdomain::begin()
+{
 	struct sockaddr_un addr { 0 };
 
-	if (path.size() > sizeof(addr.sun_path) - 1)
-		throw "socket_listener_unixdomain: socket path to long";
+	if (path.size() > sizeof(addr.sun_path) - 1) {
+		dolog(ll_error, "socket_listener_unixdomain: socket path to long");
+		return false;
+	}
 
 	fd = socket(AF_UNIX, SOCK_STREAM, 0);
-	if (fd == -1)
-		throw myformat("socket_listener_unixdomain: failed to create socket: %s", strerror(errno));
+	if (fd == -1) {
+		dolog(ll_error, "socket_listener_unixdomain: failed to create socket: %s", strerror(errno));
+		return false;
+	}
 
-	if (remove(path.c_str()) == -1 && errno != ENOENT)
-		throw myformat("socket_listener_unixdomain: failed to delete \"%s\": %s", path.c_str(), strerror(errno));
+	if (remove(path.c_str()) == -1 && errno != ENOENT) {
+		dolog(ll_error, "socket_listener_unixdomain: failed to delete \"%s\": %s", path.c_str(), strerror(errno));
+		return false;
+	}
 
 	addr.sun_family = AF_UNIX;
 	strcpy(addr.sun_path, path.c_str());
 
 	// Binding newly created socket to given IP and verification
-	if (bind(fd, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) == -1)
-		throw myformat("socket_listener_unixdomain: failed to bind to %s: %s", path.c_str(), strerror(errno));
+	if (bind(fd, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) == -1) {
+		dolog(ll_error, "socket_listener_unixdomain: failed to bind to %s: %s", path.c_str(), strerror(errno));
+		return false;
+	}
 
-	if (listen(fd, SOMAXCONN) == -1)
-		throw myformat("socket_listener_unixdomain: failed to listen on socket: %s", strerror(errno));
+	if (listen(fd, SOMAXCONN) == -1) {
+		dolog(ll_error, "socket_listener_unixdomain: failed to listen on socket: %s", strerror(errno));
+		return false;
+	}
 
 	dolog(ll_info, "socket_listener_unixdomain: listening on \"%s\"", path.c_str());
-}
 
-socket_listener_unixdomain::~socket_listener_unixdomain()
-{
+	return true;
 }
 
 socket_listener_unixdomain * socket_listener_unixdomain::load_configuration(const YAML::Node & node)

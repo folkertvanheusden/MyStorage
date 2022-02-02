@@ -1,5 +1,6 @@
 #pragma once
 #include <atomic>
+#include <mutex>
 #include <set>
 #include <yaml-cpp/yaml.h>
 
@@ -8,6 +9,7 @@ class base
 {
 private:
 	std::set<const base *> obj_used_by;
+	mutable std::mutex     lock;
 
 protected:
 	std::string      id;

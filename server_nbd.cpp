@@ -14,6 +14,7 @@
 #include "socket_listener.h"
 #include "storage_backend.h"
 #include "str.h"
+#include "yaml-helpers.h"
 
 
 const char *const nbd_cmd_names[] = { "read", "write", "disc", "flush", "trim", "cache", "zero", "status", "resize" };
@@ -21,7 +22,7 @@ const char *const nbd_cmd_names[] = { "read", "write", "disc", "flush", "trim", 
 typedef enum { nbd_st_init, nbd_st_client_flags, nbd_st_options, nbd_st_transmission, nbd_st_terminate } nbd_state_t;
 constexpr const char *const nbd_st_strings[] { "init", "client flags", "options", "transmission", "terminate" };
 
-nbd::nbd(socket_listener *const sl, const std::vector<storage_backend *> & storage_backends) : server(sl->get_listen_address()), sl(sl), storage_backends(storage_backends)
+nbd::nbd(const std::string & id, const std::vector<socket_listener *> & socket_listeners, const std::vector<storage_backend *> & storage_backends) : server(id), storage_backends(storage_backends), socket_listeners(socket_listeners)
 {
 	if (storage_backends.empty())
 		throw "nbd: backends list is empty";
@@ -38,12 +39,21 @@ nbd::nbd(socket_listener *const sl, const std::vector<storage_backend *> & stora
 
 	dolog(ll_info, "nbd(%s): maximum transaction size: %d bytes", id.c_str(), maximum_transaction_size);
 
-	sl->acquire(this);
-
 	for(auto sb : storage_backends)
 		sb->acquire(this);
 
-	th = new std::thread(std::ref(*this));
+	for(auto sl : socket_listeners) {
+		if (!sl->begin())
+			throw myformat("nbd(%s): cannot setup socket-listener for \"%s\"", id.c_str(), sl->get_listen_address().c_str());
+
+		sl->acquire(this);
+
+		std::thread *th = new std::thread([this, sl] { worker_thread(sl); });
+		if (!th)
+			throw myformat("nbd(%s): cannot start worker-thread for \"%s\"", id.c_str(), sl->get_listen_address().c_str());
+
+		worker_threads.push_back(th);
+	}
 
 	dolog(ll_info, "nbd(%s): started", id.c_str());
 }
@@ -59,15 +69,19 @@ nbd::~nbd()
 		delete t.second;
 	}
 
-	th->join();
-	delete th;
+	for(auto t : worker_threads) {
+		t->join();
+		delete t;
+	}
 
-	sl->release(this);
+	for(auto sl : socket_listeners)
+		sl->release(this);
 
 	for(auto sb : storage_backends)
 		sb->release(this);
 
-	delete sl;
+	for(auto sl : socket_listeners)
+		delete sl;
 }
 
 nbd * nbd::load_configuration(const YAML::Node & node, const std::vector<storage_backend *> & storage)
@@ -76,6 +90,9 @@ nbd * nbd::load_configuration(const YAML::Node & node, const std::vector<storage
 
 	const YAML::Node cfg = node["cfg"];
 
+	std::string id = yaml_get_string(cfg, "id", "module id");
+
+	// storage backends
 	std::vector<storage_backend *> sbs;
         YAML::Node y_sbs = cfg["storage-backends"];
         for(YAML::const_iterator it = y_sbs.begin(); it != y_sbs.end(); it++) {
@@ -92,11 +109,25 @@ nbd * nbd::load_configuration(const YAML::Node & node, const std::vector<storage
                 sbs.push_back(sb);
 	}
 
-	socket_listener *sl = socket_listener::load_configuration(cfg["socket-listener"]);
+	// socket listeners
+	std::vector<socket_listener *> socket_listeners;
+        YAML::Node y_socket_listeners = cfg["socket-listeners"];
+        for(YAML::const_iterator it = y_socket_listeners.begin(); it != y_socket_listeners.end(); it++) {
+		YAML::Node sl_node = it->as<YAML::Node>();
 
-	dolog(ll_info, "nbd::load_configuration: NBD server started, listening on \"%s\" for %zu storage(s)", sl->get_listen_address().c_str(), sbs.size());
+		socket_listener *sl = socket_listener::load_configuration(sl_node);
 
-	return new nbd(sl, sbs);
+		if (!sl) {
+			dolog(ll_error, "nbd::load_configuration: failed loading socket listener");
+			return nullptr;
+		}
+
+		socket_listeners.push_back(sl);
+	}
+
+	dolog(ll_info, "nbd::load_configuration: NBD server started, listening on %zu socket(s) for %zu storage(s)", socket_listeners.size(), sbs.size());
+
+	return new nbd(id, socket_listeners, sbs);
 }
 
 YAML::Node nbd::emit_configuration() const
@@ -107,7 +138,11 @@ YAML::Node nbd::emit_configuration() const
 
 	YAML::Node out_cfg;
 	out_cfg["storage-backends"] = out_storage_backends;
-	out_cfg["socket-listener"] = sl->emit_configuration();
+
+	std::vector<YAML::Node> socket_listeners_out;
+	for(auto sl : socket_listeners)
+		socket_listeners_out.push_back(sl->emit_configuration());
+	out_cfg["socket-listeners"] = socket_listeners_out;
 
 	YAML::Node out;
 	out["type"] = "nbd";
@@ -509,7 +544,7 @@ void nbd::handle_client(const int fd, std::atomic_bool *const thread_stopped)
 	*thread_stopped = true;
 }
 
-void nbd::operator()()
+void nbd::worker_thread(socket_listener *const sl)
 {
 	for(;!stop_flag;) {
 		int cfd = sl->wait_for_client(&stop_flag);
@@ -541,5 +576,5 @@ void nbd::operator()()
 		}
 	}
 
-	dolog(ll_info, "nbd::operator(%s): listener thread terminating", id.c_str());
+	dolog(ll_info, "nbd::operator(%s): listener thread for \"%s\" terminating", id.c_str(), sl->get_listen_address().c_str());
 }

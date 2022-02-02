@@ -18,37 +18,55 @@
 
 socket_listener_ipv4::socket_listener_ipv4(const std::string & listen_addr, const int listen_port) : listen_addr(listen_addr), listen_port(listen_port)
 {
+}
+
+socket_listener_ipv4::~socket_listener_ipv4()
+{
+}
+
+bool socket_listener_ipv4::begin()
+{
 	fd = socket(AF_INET, SOCK_STREAM, 0);
-	if (fd == -1)
-		throw myformat("socket_listener_ipv4: failed to create socket: %s", strerror(errno));
+	if (fd == -1) {
+		dolog(ll_error, "socket_listener_ipv4::begin(): failed to create socket: %s", strerror(errno));
+		return false;
+	}
 
 	int reuse_addr = 1;
-	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse_addr, sizeof(reuse_addr)) == -1)
-		throw myformat("socket_listener_ipv4: failed to set \"re-use address\": %s", strerror(errno));
+	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse_addr, sizeof(reuse_addr)) == -1) {
+		dolog(ll_error, "socket_listener_ipv4::begin(): failed to set \"re-use address\": %s", strerror(errno));
+		return false;
+	}
 
 	struct sockaddr_in servaddr { 0 };
 	servaddr.sin_family = AF_INET;
 	servaddr.sin_port = htons(listen_port);
 
-	if (inet_aton(listen_addr.c_str(), &servaddr.sin_addr) == -1)
-		throw myformat("socket_listener_ipv4: problem interpreting \"%s\": %s", listen_addr.c_str(), strerror(errno));
+	if (inet_aton(listen_addr.c_str(), &servaddr.sin_addr) == -1) {
+		dolog(ll_error, "socket_listener_ipv4::begin(): problem interpreting \"%s\": %s", listen_addr.c_str(), strerror(errno));
+		return false;
+	}
 
 	// Binding newly created socket to given IP and verification
-	if (bind(fd, reinterpret_cast<sockaddr *>(&servaddr), sizeof(servaddr)) == -1)
-		throw myformat("socket_listener_ipv4: failed to bind to [%s]:%d: %s", listen_addr.c_str(), listen_port, strerror(errno));
+	if (bind(fd, reinterpret_cast<sockaddr *>(&servaddr), sizeof(servaddr)) == -1) {
+		dolog(ll_error, "socket_listener_ipv4::begin(): failed to bind to [%s]:%d: %s", listen_addr.c_str(), listen_port, strerror(errno));
+		return false;
+	}
 
-	if (listen(fd, SOMAXCONN) == -1)
-		throw myformat("socket_listener_ipv4: failed to listen on socket: %s", strerror(errno));
+	if (listen(fd, SOMAXCONN) == -1) {
+		dolog(ll_error, "socket_listener_ipv4::begin(): failed to listen on socket: %s", strerror(errno));
+		return false;
+	}
 
 	int qlen = SOMAXCONN;
-	if (setsockopt(fd, SOL_TCP, TCP_FASTOPEN, &qlen, sizeof(qlen)) == -1)
-		throw myformat("socket_listener_ipv4: failed to enable \"tcp fastopen\": %s", strerror(errno));
+	if (setsockopt(fd, SOL_TCP, TCP_FASTOPEN, &qlen, sizeof(qlen)) == -1) {
+		dolog(ll_error, "socket_listener_ipv4::begin(): failed to enable \"tcp fastopen\": %s", strerror(errno));
+		return false;
+	}
 
-	dolog(ll_info, "socket_listener_ipv4: listening on [%s]:%d", listen_addr.c_str(), listen_port);
-}
+	dolog(ll_info, "socket_listener_ipv4::begin(): listening on [%s]:%d", listen_addr.c_str(), listen_port);
 
-socket_listener_ipv4::~socket_listener_ipv4()
-{
+	return true;
 }
 
 socket_listener_ipv4 * socket_listener_ipv4::load_configuration(const YAML::Node & node)

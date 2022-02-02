@@ -2,15 +2,24 @@
 servers:
   - type: nbd
     cfg:
+      id: NBD-server
       storage-backends:
 # id of the storage that it will use
 # this same name is used when selecting an NBD-export
         - snapshots
-      socket-listener:
-        type: socket-listener-ipv4
-        cfg:
-          listen-addr: 0.0.0.0
-          listen-port: 10809
+      socket-listeners:
+        - type: socket-listener-ipv4
+          cfg:
+            listen-addr: 0.0.0.0
+            listen-port: 10809
+        - type: socket-listener-ipv4
+          cfg:
+            listen-addr: 0.0.0.0
+            listen-port: 10810
+        - type: socket-listener-ipv6
+          cfg:
+            listen-addr: ::1
+            listen-port: 10809
 storage:
   - type: snapshots
     cfg:

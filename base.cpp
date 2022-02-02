@@ -25,11 +25,15 @@ std::string base::get_id() const
 
 const std::set<const base *> & base::obj_in_use_by() const
 {
+	std::lock_guard<std::mutex> lck(lock);
+
 	return obj_used_by;
 }
 
 void base::acquire(const base *const b)
 {
+	std::lock_guard<std::mutex> lck(lock);
+
 	if (obj_used_by.find(b) != obj_used_by.end())
 		throw myformat("base::acquire: object \"%s\" is already in use by \"%s\"", get_id().c_str(), b->get_id().c_str());
 
@@ -38,6 +42,8 @@ void base::acquire(const base *const b)
 
 void base::release(const base *const b)
 {
+	std::lock_guard<std::mutex> lck(lock);
+
 	if (obj_used_by.find(b) == obj_used_by.end())
 		throw myformat("base::release: object \"%s\" not in use by \"%s\"", get_id().c_str(), b->get_id().c_str());
 

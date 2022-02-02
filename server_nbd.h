@@ -12,10 +12,10 @@
 class nbd : public server
 {
 private:
-	socket_listener               *const sl;
 	const std::vector<storage_backend *> storage_backends;
 	int                                  maximum_transaction_size { -1 };
-	std::thread                         *th { nullptr };
+	std::vector<socket_listener *>       socket_listeners;
+	std::vector<std::thread *>           worker_threads;
 
 	std::vector<std::pair<std::thread *, std::atomic_bool *> > threads;
 
@@ -24,11 +24,11 @@ private:
 	bool send_cmd_reply(const int fd, const uint32_t err, const uint64_t handle, const std::vector<uint8_t> & data);
 	std::optional<size_t> find_storage_backend_by_id(const std::string & id);
 
-public:
-	nbd(socket_listener *const sl, const std::vector<storage_backend *> & storage_backends);
-	virtual ~nbd();
+	void worker_thread(socket_listener *const sl);
 
-	void operator()();
+public:
+	nbd(const std::string & id, const std::vector<socket_listener *> & sls, const std::vector<storage_backend *> & storage_backends);
+	virtual ~nbd();
 
 	YAML::Node emit_configuration() const override;
 	static nbd * load_configuration(const YAML::Node & node, const std::vector<storage_backend *> & storage);

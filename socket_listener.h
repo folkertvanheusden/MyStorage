@@ -11,6 +11,8 @@ public:
 	socket_listener();
 	virtual ~socket_listener();
 
+	virtual bool begin() = 0;
+
 	virtual std::string get_listen_address() const = 0;
 
 	virtual int wait_for_client(std::atomic_bool *const stop_flag) = 0;
