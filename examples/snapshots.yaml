@@ -1,0 +1,37 @@
+# define 1 or more servers
+servers:
+  - type: nbd
+    cfg:
+      storage-backends:
+# id of the storage that it will use
+# this same name is used when selecting an NBD-export
+        - snapshots
+      socket-listener:
+        type: socket-listener-ipv4
+        cfg:
+          listen-addr: 0.0.0.0
+          listen-port: 10809
+storage:
+  - type: snapshots
+    cfg:
+      id: snapshots
+      storage-directory: ./
+      filename-template: snapshot-%Y-%m-%d_%H-%M-%S.img
+# a snapshot has 1 backend; the "real" storage placw
+      storage-backend:
+        type: storage-backend-file
+        cfg:
+          id: storage
+# the size of the storage is determined by the
+# size of storage.dat - you need to create it
+# first yourself (by e.g. 'dd' or 'truncate')
+          file: storage.dat
+          mirrors:
+            []
+          block-size: 65536
+      sparse-files: true
+logging:
+  file: mystorage.log
+# debug / info / warning / error
+  loglevel-files: debug
+  loglevel-screen: info

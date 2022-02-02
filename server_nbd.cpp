@@ -92,7 +92,7 @@ nbd * nbd::load_configuration(const YAML::Node & node, const std::vector<storage
 
 	socket_listener *sl = socket_listener::load_configuration(cfg["socket-listener"]);
 
-	dolog(ll_info, "nbd::load_configuration: NBD server started, listening on \"%s\" for %zu storages", sl->get_listen_address().c_str(), sbs.size());
+	dolog(ll_info, "nbd::load_configuration: NBD server started, listening on \"%s\" for %zu storage(s)", sl->get_listen_address().c_str(), sbs.size());
 
 	return new nbd(sl, sbs);
 }

@@ -33,6 +33,7 @@ add_executable(mystorage
 	server.cpp
 	server_aoe.cpp
 	server_nbd.cpp
+	snapshots.cpp
 	socket_client.cpp
 	socket_client_ipv4.cpp
 	socket_client_ipv6.cpp
@@ -71,6 +72,7 @@ add_executable(test-mystorage
 	server.cpp
 	server_aoe.cpp
 	server_nbd.cpp
+	snapshots.cpp
 	socket_client.cpp
 	socket_client_ipv4.cpp
 	socket_client_ipv6.cpp

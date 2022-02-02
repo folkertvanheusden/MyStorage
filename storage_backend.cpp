@@ -1,5 +1,6 @@
 #include "journal.h"
 #include "logging.h"
+#include "snapshots.h"
 #include "storage_backend.h"
 #include "storage_backend_aoe.h"
 #include "storage_backend_compressed_dir.h"
@@ -50,6 +51,8 @@ storage_backend * storage_backend::load_configuration(const YAML::Node & node)
 		return storage_backend_aoe::load_configuration(node);
 	else if (type == "journal")
 		return journal::load_configuration(node);
+	else if (type == "snapshots")
+		return snapshots::load_configuration(node);
 
 	dolog(ll_error, "storage_backend::load_configuration: storage type \"%s\" is not known", type.c_str());
 

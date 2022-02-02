@@ -33,7 +33,9 @@ bool open_tun(const std::string & dev_name, int *const fd, int *const mtu_size)
 	if (fcntl(*fd, F_SETFD, FD_CLOEXEC) == -1)
 		error_exit(true, myformat("aoe(%s): settinf FD_CLOEXEC on fd failed", dev_name.c_str()).c_str());
 
-	struct ifreq ifr_tap { 0 };
+	struct ifreq ifr_tap;
+	memset(&ifr_tap, 0x00, sizeof ifr_tap);
+
 	ifr_tap.ifr_flags = IFF_TAP | IFF_NO_PI;
 	set_ifr_name(&ifr_tap, dev_name);
 
@@ -53,7 +55,9 @@ bool open_tun(const std::string & dev_name, int *const fd, int *const mtu_size)
 		error_exit(true, myformat("aoe(%s): ioctl SIOCSIFFLAGS failed", dev_name.c_str()).c_str());
 
 	if (*mtu_size != 0) {
-		struct ifreq ifr_tap2 { 0 };
+		struct ifreq ifr_tap2;
+		memset(&ifr_tap2, 0x00, sizeof ifr_tap2);
+
 		set_ifr_name(&ifr_tap2, dev_name);
 		ifr_tap2.ifr_addr.sa_family = AF_INET;
 
@@ -63,7 +67,9 @@ bool open_tun(const std::string & dev_name, int *const fd, int *const mtu_size)
 			error_exit(true, myformat("aoe(%s): ioctl SIOCSIFMTU failed", dev_name.c_str()).c_str());
 	}
 	else {
-		struct ifreq ifr_tap2 { 0 };
+		struct ifreq ifr_tap2;
+		memset(&ifr_tap2, 0x00, sizeof ifr_tap2);
+
 		set_ifr_name(&ifr_tap2, dev_name);
 		ifr_tap2.ifr_addr.sa_family = AF_INET;
 

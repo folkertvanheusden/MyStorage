@@ -12,6 +12,7 @@
 #include "hash_sha384.h"
 #include "journal.h"
 #include "logging.h"
+#include "snapshots.h"
 #include "socket_client_ipv4.h"
 #include "storage_backend_file.h"
 #include "storage_backend_dedup.h"
@@ -136,8 +137,7 @@ void test_integrity(storage_backend *const sb)
 
 void test_integrities()
 {
-	if (1)
-	{
+	if (0) {
 		const std::string test_data_file = "test/data.dat";
 
 		constexpr offset_t data_size = 5l * 1024l * 1024l * 1024l;
@@ -152,7 +152,7 @@ void test_integrities()
 		os_assert(unlink(test_data_file.c_str()));
 	}
 
-	if (1) {
+	if (0) {
 		try {
 			socket_client_ipv4 sc("192.168.122.115", 10809);
 
@@ -166,7 +166,7 @@ void test_integrities()
 		}
 	}
 
-	if (1) {
+	if (0) {
 		try {
 			const std::string test_data_file = "test/data.kch";
 
@@ -185,6 +185,23 @@ void test_integrities()
 			fprintf(stderr, "exception: %s\n", error.c_str());
 			assert(0);
 		}
+	}
+
+	if (1) {
+		const std::string test_data_file = "test/data.dat";
+
+		constexpr offset_t data_size = 5l * 1024l * 1024l * 1024l;
+		constexpr int block_size = 4096;
+
+		make_file(test_data_file, data_size);  // 1GB data file
+
+		storage_backend_file sbf_data("data", test_data_file, block_size, { });
+
+		snapshots s("snapshot", ".", "snapshut.img", &sbf_data, true);
+
+		test_integrity(&s);
+
+		os_assert(unlink(test_data_file.c_str()));
 	}
 }
 

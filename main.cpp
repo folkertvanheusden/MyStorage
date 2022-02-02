@@ -1,5 +1,6 @@
 #include <atomic>
 #include <errno.h>
+#include <map>
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
@@ -11,6 +12,7 @@
 #include "server.h"
 #include "server_aoe.h"
 #include "server_nbd.h"
+#include "snapshots.h"
 #include "storage_backend.h"
 #include "str.h"
 
@@ -60,7 +62,7 @@ void store_configuration(const std::vector<server *> & servers, const std::vecto
 	}
 }
 
-std::pair<std::vector<server *>, std::vector<storage_backend *> > load_configuration(const std::string & file)
+std::map<std::string, std::vector<base *> > load_configuration(const std::string & file)
 {
 	dolog(ll_info, "load_configuration: loading configuration from \"%s\"", file.c_str());
 
@@ -68,20 +70,32 @@ std::pair<std::vector<server *>, std::vector<storage_backend *> > load_configura
 
 	YAML::Node cfg_storage = config["storage"];
 
+	std::vector<base *> snapshotters;
+
 	std::vector<storage_backend *> storage;
+	std::vector<base *> storage_rc;
 
 	for(YAML::const_iterator it = cfg_storage.begin(); it != cfg_storage.end(); it++) {
 		const YAML::Node node = it->as<YAML::Node>();
 
 		storage_backend *sb = storage_backend::load_configuration(node);
 
-		if (sb)
-			storage.push_back(sb);
+		storage.push_back(sb);
+		storage_rc.push_back(sb);
+
+		try {
+			snapshots *s = dynamic_cast<snapshots *>(sb);
+
+			snapshotters.push_back(s);
+		}
+		catch(std::bad_cast & bc) {
+			// not a snapshot-object
+		}
 	}
 
 	YAML::Node cfg_servers = config["servers"];
 
-	std::vector<server *> servers;
+	std::vector<base *> servers;
 
 	for(YAML::const_iterator it = cfg_servers.begin(); it != cfg_servers.end(); it++) {
 		const YAML::Node node = it->as<YAML::Node>();
@@ -97,7 +111,12 @@ std::pair<std::vector<server *>, std::vector<storage_backend *> > load_configura
 
 	setlog(logfile.c_str(), ll_file, ll_screen);
 
-	return { servers, storage };
+	std::map<std::string, std::vector<base *> > out;
+	out.insert({ "servers", servers });
+	out.insert({ "storage", storage_rc });
+	out.insert({ "snapshots", snapshotters });  // do not manually free as it is a storage object
+
+	return out;
 }
 
 int main(int argc, char *argv[])
@@ -117,9 +136,7 @@ int main(int argc, char *argv[])
 	signal(SIGINT, sigh);
 
 	try {
-		auto rc = load_configuration(yaml_file);
-		auto servers = rc.first;
-		auto storage = rc.second;
+		auto modules = load_configuration(yaml_file);
 
 		dolog(ll_info, "MyStorage running");
 
@@ -128,10 +145,10 @@ int main(int argc, char *argv[])
 
 		dolog(ll_info, "MyStorage terminating");
 
-		for(auto srv : servers)
+		for(auto srv : modules["servers"])
 			delete srv;
 
-		for(auto sb : storage)
+		for(auto sb : modules["storage"])
 			delete sb;
 	}
 	catch(const std::string & err) {
