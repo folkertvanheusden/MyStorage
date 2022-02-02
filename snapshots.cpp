@@ -164,7 +164,7 @@ void snapshot_state::operator()()
 	}
 
 	if (block_nr != n_blocks)
-		dolog(ll_error, "snapshot_state::operator(%s): not all data was snapshotted! (%ld of %ld blocks)", block_nr, n_blocks);
+		dolog(ll_error, "snapshot_state::operator(%s): not all data was snapshotted! (%ld of %ld blocks)", complete_filename.c_str(), block_nr, n_blocks);
 
 	if (fsync(fd) == -1)
 		dolog(ll_error, "snapshot_state::operator(%s): failed to fsync snapshot: %s", complete_filename.c_str(), strerror(errno));
@@ -178,6 +178,8 @@ void snapshot_state::operator()()
 
 snapshots::snapshots(const std::string & id, const std::string & storage_directory, const std::string & filename_template, storage_backend *const sb, const bool sparse_files) : storage_backend(id, sb->get_block_size(), { }), storage_directory(storage_directory), filename_template(filename_template), sb(sb), sparse_files(sparse_files)
 {
+	if (sparse_files)
+		dolog(ll_info, "snapshots: sparse snapshot files enabled");
 }
 
 snapshots::~snapshots()
