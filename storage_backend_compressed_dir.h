@@ -32,7 +32,7 @@ public:
 
 	offset_t get_size() const override;
 
-	bool trim_zero(const offset_t offset, const uint32_t len, const bool trim, int *const err);
+	bool trim_zero(const offset_t offset, const uint32_t len, const bool trim, int *const err) override;
 
 	bool fsync() override;
 

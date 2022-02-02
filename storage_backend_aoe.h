@@ -39,6 +39,6 @@ public:
 
 	bool trim_zero(const offset_t offset, const uint32_t len, const bool trim, int *const err) override;
 
-	YAML::Node emit_configuration() const;
+	YAML::Node emit_configuration() const override;
 	static storage_backend_aoe * load_configuration(const YAML::Node & node);
 };

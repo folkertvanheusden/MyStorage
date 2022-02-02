@@ -17,5 +17,5 @@ public:
 	int connect() override;
 
 	static socket_client_ipv4 * load_configuration(const YAML::Node & node);
-	YAML::Node emit_configuration() const;
+	YAML::Node emit_configuration() const override;
 };

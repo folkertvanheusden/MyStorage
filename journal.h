@@ -86,6 +86,6 @@ public:
 
 	void operator()();
 
-	YAML::Node emit_configuration() const;
+	YAML::Node emit_configuration() const override;
 	static journal * load_configuration(const YAML::Node & node);
 };

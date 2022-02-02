@@ -20,7 +20,7 @@ private:
 
 protected:
 	bool get_block(const block_nr_t block_nr, uint8_t **const data) override;
-	bool get_multiple_blocks(const block_nr_t block_nr, const block_nr_t blocks_to_do, uint8_t *to);
+	bool get_multiple_blocks(const block_nr_t block_nr, const block_nr_t blocks_to_do, uint8_t *to) override;
 
 	bool put_block(const block_nr_t block_nr, const uint8_t *const data) override;
 

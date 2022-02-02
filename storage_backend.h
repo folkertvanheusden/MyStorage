@@ -17,6 +17,8 @@ private:
 	bool do_mirror(const offset_t offset, const block & b);
 
 protected:
+	friend class snapshots;
+
 	const int                   block_size { 4096 };
 	const std::vector<mirror *> mirrors;
 	lock_group                  lg;
@@ -46,8 +48,8 @@ public:
 
 	void get_data(const offset_t offset, const uint32_t size, uint8_t **const d, int *const err);
 	void get_data(const offset_t offset, const uint32_t size, block **const b, int *const err);
-	void put_data(const offset_t offset, const block & b, int *const err);
-	void put_data(const offset_t offset, const std::vector<uint8_t> & d, int *const err);
+	virtual void put_data(const offset_t offset, const block & b, int *const err);
+	virtual void put_data(const offset_t offset, const std::vector<uint8_t> & d, int *const err);
 
 	virtual bool fsync() = 0;
 

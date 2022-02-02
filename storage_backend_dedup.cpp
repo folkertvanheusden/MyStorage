@@ -338,7 +338,7 @@ bool storage_backend_dedup::map_blocknr_to_hash(const block_nr_t block_nr, const
 #define ABORT_TRANSACTION(db, where) 				\
 	do {							\
 		if ((db).end_transaction(false) == false) {	\
-			dolog(ll_error, "%s failed aborting transaction: %s", where, db.error().message()); \
+			dolog(ll_error, "%s failed aborting transaction: %s", where.c_str(), db.error().message()); \
 			return false;				\
 		}						\
 	}							\
