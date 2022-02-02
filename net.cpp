@@ -139,3 +139,12 @@ bool str_to_mac(const std::string & in, uint8_t *const out)
 
 	return true;
 }
+
+std::string mac_to_str(const uint8_t in[6])
+{
+	char buffer[18] { 0 };
+
+	snprintf(buffer, sizeof buffer, "%02x:%02x:%02x:%02x:%02x:%02x", in[0], in[1], in[2], in[3], in[4], in[5]);
+
+	return buffer;
+}

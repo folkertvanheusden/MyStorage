@@ -1,0 +1,35 @@
+# define 1 or more servers
+servers:
+  - type: aoe
+    cfg:
+      id: AoE-server
+# id of the storage that it will use
+      storage-backend: some-storage
+# virtual shelf
+      major: 13
+# virtual slot
+      minor: 4
+      paths:
+        - dev-name: prip0
+          my-mac: 32:11:22:33:44:55
+          allowed-mac: 52:54:00:cb:b1:3b
+          mtu-size: 1500
+        - dev-name: secp0
+          my-mac: 32:00:11:22:33:44
+# everyone can connect via this path
+          allowed-mac: ff:ff:ff:ff:ff:ff
+          mtu-size: 1500
+storage:
+  - type: storage-backend-file
+    cfg:
+      id: some-storage
+      size: 2G
+      file: data.dat
+      mirrors:
+        []
+      block-size: 4096
+logging:
+  file: mystorage.log
+# debug / info / warning / error
+  loglevel-files: debug
+  loglevel-screen: info

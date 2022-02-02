@@ -16,45 +16,64 @@
 #include "server.h"
 #include "server_aoe.h"
 #include "str.h"
+#include "yaml-helpers.h"
 
 
-aoe::aoe(const std::string & dev_name, storage_backend *const storage_backend, const uint8_t my_mac[6], const int mtu_size_in, const uint16_t major, const uint8_t minor) : server(myformat("%d.%d/%s", major, minor, dev_name.c_str())), dev_name(dev_name), sb(storage_backend), major(major), minor(minor)
+aoe::aoe(storage_backend *const sb, const uint16_t major, const uint8_t minor, const std::vector<aoe_path_t> & paths) :
+	server(myformat("%d.%d", major, minor)),
+	sb(sb), major(major), minor(minor),
+	paths(paths)
 {
-	mtu_size = mtu_size_in > 0 ? mtu_size_in : 0;
+	sb->acquire(this);
 
-	if (open_tun(dev_name, &fd, &mtu_size) == false)
-		throw myformat("aoe(%s): failed creating network device \"%s\"", id.c_str(), dev_name.c_str());
+	dolog(ll_info, "aoe(%s): %zu network paths configured", id.c_str(), this->paths.size());
 
-	memcpy(this->my_mac, my_mac, 6);
-	dolog(ll_debug, "aoe(%s): MAC address: %02x:%02x:%02x:%02x:%02x:%02x", id.c_str(), my_mac[0], my_mac[1], my_mac[2], my_mac[3], my_mac[4], my_mac[5]);
+	for(auto & path : this->paths) {
+		if (open_tun(path.dev_name, &path.fd, &path.mtu_size) == false)
+			throw myformat("aoe(%s): failed creating network device \"%s\"", id.c_str(), path.dev_name.c_str());
 
-	storage_backend->acquire(this);
+		dolog(ll_debug, "aoe(%s): local MAC address: %s", id.c_str(), mac_to_str(path.my_mac).c_str());
 
-	th = new std::thread(std::ref(*this));
+		path.th = new std::thread([this, &path] { worker_thread(path); });
+		if (!path.th)
+			throw myformat("aoe(%s): failed starting thread for network device \"%s\"", id.c_str(), path.dev_name.c_str());
 
-	dolog(ll_info, "aoe(%s): started", id.c_str());
+		dolog(ll_info, "aoe(%s): started for \"%s\"", id.c_str(), path.dev_name.c_str());
+	}
 }
 
 aoe::~aoe()
 {
 	stop();
 
-	if (fd != -1)
-		close(fd);
+	for(auto & path : paths) {
+		if (path.fd != -1)
+			close(path.fd);
 
-	th->join();
-	delete th;
+		path.th->join();
+		delete path.th;
+	}
 
 	sb->release(this);
 }
 
 YAML::Node aoe::emit_configuration() const
 {
+	std::vector<YAML::Node> paths_out;
+
+	for(const auto & path : paths) {
+		YAML::Node path_cfg;
+
+		path_cfg["dev-name"]    = path.dev_name;
+		path_cfg["my-mac"]      = mac_to_str(path.my_mac);
+		path_cfg["allowed-mac"] = mac_to_str(path.allowed_mac);
+		path_cfg["mtu-size"]    = path.mtu_size;
+	}
+
 	YAML::Node out_cfg;
-	out_cfg["dev-name"] = dev_name;
+	out_cfg["paths"] = paths_out;
+
 	out_cfg["storage-backend"] = sb->get_id();
-	out_cfg["my-mac"] = myformat("%02x:%02x:%02x:%02x:%02x:%02x", my_mac[0], my_mac[1], my_mac[2], my_mac[3], my_mac[4], my_mac[5]);
-	out_cfg["mtu-size"] = mtu_size;
 	out_cfg["major"] = major;
 	out_cfg["minor"] = minor;
 
@@ -69,15 +88,11 @@ aoe * aoe::load_configuration(const YAML::Node & node, const std::vector<storage
 {
 	dolog(ll_info, " * aoe::load_configuration");
 
-	const YAML::Node cfg = node["cfg"];
+	const YAML::Node cfg = yaml_get_yaml_node(node, "cfg", "aoe configuration");
 
-	std::string mac = cfg["my-mac"].as<std::string>();
-
-	uint8_t my_mac[6] = { 0 };
-	if (!str_to_mac(mac, my_mac)) {
-		dolog(ll_error, "aoe::load_configuration: cannot parse MAC-address \"%s\"", mac.c_str());
-		return nullptr;
-	}
+	// global AoE settings
+	uint16_t major = cfg["major"].as<int>();
+	uint8_t minor = cfg["minor"].as<int>();
 
 	std::string sb_name = cfg["storage-backend"].as<std::string>();
 	storage_backend *sb = find_storage(storage, sb_name);
@@ -86,28 +101,52 @@ aoe * aoe::load_configuration(const YAML::Node & node, const std::vector<storage
 		return nullptr;
 	}
 
-	std::string dev_name = cfg["dev-name"].as<std::string>();
-	int mtu_size = cfg["mtu-size"].as<int>();
-	uint16_t major = cfg["major"].as<int>();
-	uint8_t minor = cfg["minor"].as<int>();
+	// network paths
+	std::vector<aoe_path_t> paths;
 
-	dolog(ll_info, "aoe::load_configuration: new AoE server on device \"%s\" with storage \"%s\"", dev_name.c_str(), sb_name.c_str());
+	const YAML::Node paths_cfg = yaml_get_yaml_node(cfg, "paths", "network paths");
+        for(YAML::const_iterator it = paths_cfg.begin(); it != paths_cfg.end(); it++) {
+		YAML::Node path_cfg = it->as<YAML::Node>();
 
-	return new aoe(dev_name, sb, my_mac, mtu_size, major, minor);
+		aoe_path_t ap;
+
+		std::string str_my_mac = yaml_get_string(path_cfg, "my-mac", "local MAC address");
+		std::string str_allowed_mac = yaml_get_string(path_cfg, "allowed-mac", "MAC address of host that is allowed to use this export, broadcast MAC for everyone");
+
+		if (!str_to_mac(str_my_mac, ap.my_mac)) {
+			dolog(ll_error, "aoe::load_configuration: cannot parse MAC-address \"%s\"", str_my_mac.c_str());
+			return nullptr;
+		}
+
+		if (!str_to_mac(str_allowed_mac, ap.allowed_mac)) {
+			dolog(ll_error, "aoe::load_configuration: cannot parse MAC-address \"%s\"", str_allowed_mac.c_str());
+			return nullptr;
+		}
+
+		ap.dev_name = yaml_get_string(path_cfg, "dev-name", "network device name");
+		ap.mtu_size = yaml_get_int(path_cfg, "mtu-size", "mtu size of this network device");
+
+		paths.push_back(ap);
+
+		dolog(ll_info, "aoe::load_configuration: new AoE server on device \"%s\" with storage \"%s\"", ap.dev_name.c_str(), sb_name.c_str());
+	}
+
+	return new aoe(sb, major, minor, paths);
 }
 
-bool aoe::announce()
+bool aoe::announce(const aoe_path_t & ap)
 {
 	dolog(ll_debug, "aoe::announce(%s): announce shelf", id.c_str());
 
 	std::vector<uint8_t> out;
 
 	/// ethernet header
+	// DST
 	for(int i=0; i<6; i++)
 		out.push_back(0xff);
 	// SRC
 	for(int i=0; i<6; i++)
-		out.push_back(my_mac[i]);
+		out.push_back(ap.my_mac[i]);
 
 	// Ethernet type
 	add_uint16(out, AoE_EtherType);
@@ -125,12 +164,12 @@ bool aoe::announce()
 	// Configuration announcement payload
 	add_uint16(out, 16);  // buffer count
 	add_uint16(out, firmware_version);  // firmware version
-	out.push_back(std::min(255, (mtu_size - 36) / 512));    // max number of sectors in 1 command
+	out.push_back(std::min(255, (ap.mtu_size - 36) / 512));    // max number of sectors in 1 command
 	out.push_back(0x10 | Ccmd_read);
 
 	add_uint16(out, 0);  // configuration length
 
-	if (write(fd, out.data(), out.size()) != ssize_t(out.size())) {
+	if (write(ap.fd, out.data(), out.size()) != ssize_t(out.size())) {
 		dolog(ll_error, "aoe::operator(%s): failed to tansmit Ethernet frame: %s (announce)", id.c_str(), strerror(errno));
 		return false;
 	}
@@ -138,20 +177,20 @@ bool aoe::announce()
 	return true;
 }
 
-void aoe::operator()()
+void aoe::worker_thread(aoe_path_t & ap)
 {
 	std::atomic_bool local_stop_flag { false };
 
-	std::thread announcer([this, &local_stop_flag] {
-				for(;!local_stop_flag;) {
-					announce();
+	std::thread announcer([this, ap, &local_stop_flag] {
+			for(;!local_stop_flag;) {
+				announce(ap);
 
-					for(int i=0; i<5 && !local_stop_flag; i++)
-						sleep(1);
-				}
-			});
+				for(int i=0; i<5 && !local_stop_flag; i++)
+					sleep(1);
+			}
+		});
 
-	struct pollfd fds[] = { { fd, POLLIN, 0 } };
+	struct pollfd fds[] = { { ap.fd, POLLIN, 0 } };
 
 	for(;!stop_flag;) {
 		int rc = poll(fds, 1, 250);
@@ -166,7 +205,7 @@ void aoe::operator()()
 		// enough for jumbo frames
 		uint8_t frame[65536];
 
-		int size = read(fd, (char *)frame, sizeof frame);
+		int size = read(ap.fd, (char *)frame, sizeof frame);
 		if (size == -1) {
 			dolog(ll_error, "aoe::operator(%s): failed to retrieve frame from virtual Ethernet interface", id.c_str());
 			break;
@@ -177,10 +216,16 @@ void aoe::operator()()
 			continue;
 		}
 
-		// check mac address
+		// check destination mac address
 		constexpr uint8_t bc_mac[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
-		if (memcmp(&frame[0], my_mac, 6) != 0 && memcmp(&frame[0], bc_mac, 6) != 0) {
-			dolog(ll_debug, "aoe::operator(%s): ignoring frame not for us %02x%02x%02x%02x%02x%02x", id.c_str(), frame[0], frame[1], frame[2], frame[3], frame[4], frame[5]);
+		if (memcmp(&frame[0], ap.my_mac, 6) != 0 && memcmp(&frame[0], bc_mac, 6) != 0) {
+			dolog(ll_debug, "aoe::operator(%s): ignoring frame not for us %02x%02x%02x%02x%02x%02x", id.c_str(), mac_to_str(&frame[0]).c_str());
+			continue;
+		}
+
+		// check source map
+		if (memcmp(ap.allowed_mac, bc_mac, 6) != 0 && memcmp(&frame[6], ap.allowed_mac, 6) != 0) {
+			dolog(ll_debug, "aoe::operator(%s): ignoring frame from a prohibited MAC address %s", id.c_str(), mac_to_str(&frame[6]).c_str());
 			continue;
 		}
 
@@ -193,7 +238,7 @@ void aoe::operator()()
 			out.at(i) = frame[i + 6];
 		// new SRC
 		for(int i=0; i<6; i++)
-			out.at(i + 6) = my_mac[i];
+			out.at(i + 6) = ap.my_mac[i];
 
 		out.at(16) = major >> 8;
 		out.at(17) = major;
@@ -215,7 +260,7 @@ void aoe::operator()()
 			out.at(26) = firmware_version >> 8;
 			out.at(27) = firmware_version & 255;
 
-			out.at(28) = std::min(255, (mtu_size - 36) / 512);  // max number of sectors in 1 command
+			out.at(28) = std::min(255, (ap.mtu_size - 36) / 512);  // max number of sectors in 1 command
 			dolog(ll_debug, "aoe::operator(%s): max. nr. of sectors per command: %d", id.c_str(), out.at(28));
 
 			out.at(29) = 0x10 | sub_command;  // version & sub command
@@ -229,20 +274,20 @@ void aoe::operator()()
 				out.resize(32);
 			}
 			else if (sub_command == Ccmd_test) {
-				if (sc_data_len != sizeof(configuration) || memcmp(configuration, out.data() + 32, sc_data_len) != 0)
+				if (sc_data_len != sizeof(ap.configuration) || memcmp(ap.configuration, out.data() + 32, sc_data_len) != 0)
 					respond = false;
 			}
 			else if (sub_command == Ccmd_test_prefix) {
-				if (sc_data_len > sizeof(configuration) || memcmp(configuration, out.data() + 32, sc_data_len) != 0)
+				if (sc_data_len > sizeof(ap.configuration) || memcmp(ap.configuration, out.data() + 32, sc_data_len) != 0)
 					respond = false;
 			}
 			else if (sub_command == Ccmd_set_config || sub_command == Ccmd_force_set_config) {
-				if (sc_data_len != sizeof(configuration)) {
+				if (sc_data_len != sizeof(ap.configuration)) {
 					out.at(14) |= FlagE;
 					out.at(15) = E_ConfigErr;
 				}
 				else {
-					memcpy(configuration, out.data() + 32, sc_data_len);
+					memcpy(ap.configuration, out.data() + 32, sc_data_len);
 				}
 			}
 			else {
@@ -252,7 +297,7 @@ void aoe::operator()()
 			if (respond) {
 				dolog(ll_debug, "aoe::operator(%s): send response to sub-command %d (%zu bytes)", id.c_str(), sub_command, out.size());
 
-				if (write(fd, out.data(), out.size()) != ssize_t(out.size())) {
+				if (write(ap.fd, out.data(), out.size()) != ssize_t(out.size())) {
 					dolog(ll_error, "aoe::operator(%s): failed to tansmit Ethernet frame: %s (Info)", id.c_str(), strerror(errno));
 					break;
 				}
@@ -305,7 +350,7 @@ void aoe::operator()()
 				for(int i=0; i<256; i++)
 					add_uint16(out, htons(response[i]));
 
-				if (write(fd, out.data(), out.size()) != ssize_t(out.size())) {
+				if (write(ap.fd, out.data(), out.size()) != ssize_t(out.size())) {
 					dolog(ll_error, "aoe::operator(%s): failed to transmit Ethernet frame: %s (Identify)", id.c_str(), strerror(errno));
 					break;
 				}
@@ -330,7 +375,7 @@ void aoe::operator()()
 					out.resize(36 + b->get_size());  // make room
 					memcpy(out.data() + 36, b->get_data(), b->get_size());
 
-					if (write(fd, out.data(), out.size()) != ssize_t(out.size())) {
+					if (write(ap.fd, out.data(), out.size()) != ssize_t(out.size())) {
 						dolog(ll_error, "aoe::operator(%s): failed to transmit Ethernet frame: %s (%zu bytes, ReadSector)", id.c_str(), strerror(errno), out.size());
 						break;
 					}
@@ -343,7 +388,7 @@ void aoe::operator()()
 
 				dolog(ll_debug, "aoe::operator(%s): CommandATA: WriteSector(s) to LBA %llu", id.c_str(), lba);
 
-				block b(&out[36], out[26] * 512);  // TODO range check
+				block b(&out[36], out[26] * 512, false);  // TODO range check
 
 				int err = 0;
 				sb->put_data(lba * 512, b, &err);
@@ -356,7 +401,7 @@ void aoe::operator()()
 					out[27] = 64;  // DRDY set
 					out.resize(36);
 
-					if (write(fd, out.data(), out.size()) != ssize_t(out.size())) {
+					if (write(ap.fd, out.data(), out.size()) != ssize_t(out.size())) {
 						dolog(ll_error, "aoe::operator(%s): failed to transmit Ethernet frame: %s (%zu bytes, WriteSector)", id.c_str(), strerror(errno), out.size());
 						break;
 					}
