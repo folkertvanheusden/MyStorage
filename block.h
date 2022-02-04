@@ -20,6 +20,8 @@ public:
 	block(const block & other);
 	virtual ~block();
 
+	bool operator==(const block &other) const;
+
 	bool empty() const;
 
 	size_t get_size() const;

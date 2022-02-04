@@ -51,3 +51,11 @@ const uint8_t * block::get_data() const
 {
 	return data;
 }
+
+bool block::operator==(const block & other) const
+{
+	if (other.get_size() != get_size())
+		return false;
+
+	return memcmp(other.get_data(), get_data(), get_size()) == 0;
+}
