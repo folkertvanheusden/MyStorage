@@ -2,6 +2,8 @@
 #include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
+#include <linux/fs.h>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -14,24 +16,26 @@
 #include "yaml-helpers.h"
 
 
-storage_backend_file::storage_backend_file(const std::string & id, const std::string & file, const offset_t size, const int block_size, const std::vector<mirror *> & mirrors) : storage_backend(id, block_size, mirrors), size(size), file(file)
+storage_backend_file::storage_backend_file(const std::string & id, const std::string & file, const offset_t size, const int block_size, const bool is_block_dev, const std::vector<mirror *> & mirrors) : storage_backend(id, block_size, mirrors), size(size), file(file)
 {
 	fd = open(file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
 	if (fd == -1)
 		throw myformat("storage_backend_file(%s): failed to access \"%s\": %s", id.c_str(), file.c_str(), strerror(errno));
 
-	struct stat st { 0 };
-	if (fstat(fd, &st) == -1)
-		throw myformat("storage_backend_file(%s): failed to retrieve meta data from \"%s\": %s", id.c_str(), file.c_str(), strerror(errno));
+	if (!is_block_dev) {
+		struct stat st { 0 };
+		if (fstat(fd, &st) == -1)
+			throw myformat("storage_backend_file(%s): failed to retrieve meta data from \"%s\": %s", id.c_str(), file.c_str(), strerror(errno));
 
-	if (st.st_size == 0) {
-		dolog(ll_info, "storage_backend_file(%s): size was 0 bytes, new backend file?", id.c_str());
+		if (st.st_size == 0) {
+			dolog(ll_info, "storage_backend_file(%s): size was 0 bytes, new backend file?", id.c_str());
 
-		if (ftruncate(fd, size) == -1)
-			throw myformat("storage_backend_file(%s): failed to set size of backend file", id.c_str());
-	}
-	else if (size > offset_t(st.st_size)) {
-		throw myformat("storage_backend_file(%s): on-disk file not big enough", id.c_str());
+			if (ftruncate(fd, size) == -1)
+				throw myformat("storage_backend_file(%s): failed to set size of backend file", id.c_str());
+		}
+		else if (size > offset_t(st.st_size)) {
+			throw myformat("storage_backend_file(%s): on-disk file not big enough", id.c_str());
+		}
 	}
 
 	dolog(ll_debug, "storage_backend_file(%s): size is %zu bytes", id.c_str(), size);
@@ -53,6 +57,8 @@ storage_backend_file * storage_backend_file::load_configuration(const YAML::Node
 
 	std::string id = yaml_get_string(cfg, "id", "module identifier");
 
+	bool is_block_dev = yaml_get_bool(cfg, "is-block-device", "is it a regular file or a block device");
+
 	std::vector<mirror *> mirrors;
 	YAML::Node y_mirrors = cfg["mirrors"];
 	for(YAML::const_iterator it = y_mirrors.begin(); it != y_mirrors.end(); it++)
@@ -60,11 +66,37 @@ storage_backend_file * storage_backend_file::load_configuration(const YAML::Node
 
 	std::string file = yaml_get_string(cfg, "file", "deduplication store filename");
 
-	offset_t final_size = size.has_value() ? size.value() : yaml_get_uint64_t(cfg, "size", "size (in bytes) of the dedup-storage", true);
+	offset_t temp_size = 0;
+	if (is_block_dev) {
+		uint64_t bd_size = 0;
+
+		int fd = open(file.c_str(), O_RDONLY);
+		if (fd == -1) {
+			dolog(ll_error, "storage_backend_file::load_configuration(%s): cannot open device file \"%s\": %s", id.c_str(), file.c_str(), strerror(errno));
+			return nullptr;
+		}
+
+		if (ioctl(fd, BLKGETSIZE64, &bd_size) == -1) {
+			dolog(ll_error, "storage_backend_file::load_configuration(%s): cannot determien size of device \"%s\": %s", id.c_str(), file.c_str(), strerror(errno));
+			close(fd);
+			return nullptr;
+		}
+
+		dolog(ll_debug, "storage_backend_file::load_configuration(%s): devices is %ld bytes in size", id.c_str(), bd_size);
+
+		close(fd);
+		
+		temp_size = bd_size;
+	}
+	else {
+		temp_size = yaml_get_uint64_t(cfg, "size", "size (in bytes) of the dedup-storage", true);
+	}
+
+	offset_t final_size = size.has_value() ? size.value() : temp_size;
 
 	int final_block_size = block_size.has_value() ? block_size.value() : yaml_get_int(cfg, "block-size", "block size");
 
-	return new storage_backend_file(id, file, final_size, final_block_size, mirrors);
+	return new storage_backend_file(id, file, final_size, final_block_size, is_block_dev, mirrors);
 }
 
 YAML::Node storage_backend_file::emit_configuration() const

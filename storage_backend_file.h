@@ -22,7 +22,7 @@ protected:
 	bool get_multiple_blocks(const block_nr_t block_nr, const block_nr_t blocks_to_do, uint8_t *const to) override;
 
 public:
-	storage_backend_file(const std::string & id, const std::string & file, const offset_t size, const int block_size, const std::vector<mirror *> & mirrors);
+	storage_backend_file(const std::string & id, const std::string & file, const offset_t size, const int block_size, const bool is_block_dev, const std::vector<mirror *> & mirrors);
 	virtual ~storage_backend_file();
 
 	offset_t get_size() const override;

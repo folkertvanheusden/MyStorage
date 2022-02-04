@@ -40,6 +40,7 @@ storage:
 # here we store the journalling in a local file
         type: storage-backend-file
         cfg:
+          is-block-device: false
           id: journal-journal
           size: 256M
           file: journal.dat

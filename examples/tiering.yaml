@@ -21,6 +21,7 @@ storage:
         type: storage-backend-file
         cfg:
           id: storage-fast
+          is-block-device: false
           file: fast.dat
           mirrors:
             []
@@ -30,6 +31,7 @@ storage:
         type: storage-backend-file
         cfg:
           id: storage-slow
+          is-block-device: false
           file: slow.dat
           mirrors:
             []
@@ -39,6 +41,7 @@ storage:
         type: storage-backend-file
         cfg:
           id: storage-meta
+          is-block-device: false
           file: meta.dat
           mirrors:
             []

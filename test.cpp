@@ -140,11 +140,11 @@ storage_backend *create_sb_instance()
 {
 	constexpr int block_size = 4096;
 
-	storage_backend *fast = new storage_backend_file("fast", "test/fast.dat", 1 * 1024 * 1024, block_size, { });
-	storage_backend *slow = new storage_backend_file("slow", "test/slow.dat", 5ll * 1024 * 1024 * 1024, block_size, { });
+	storage_backend *fast = new storage_backend_file("fast", "test/fast.dat", 1 * 1024 * 1024, block_size, false, { });
+	storage_backend *slow = new storage_backend_file("slow", "test/slow.dat", 5ll * 1024 * 1024 * 1024, block_size, false, { });
 
 	auto md = storage_backend_tiering::get_meta_dimensions(fast->get_size(), fast->get_block_size());
-	storage_backend *meta = new storage_backend_file("meta", "test/meta.dat", md.first * md.second, md.second, { });
+	storage_backend *meta = new storage_backend_file("meta", "test/meta.dat", md.first * md.second, md.second, false, { });
 
 	return new storage_backend_tiering("storage-backend-tiering", fast, slow, meta, { });
 }
@@ -243,7 +243,7 @@ void test_integrities()
 
 			make_file(test_data_file, data_size);  // 1GB data file
 
-			storage_backend_file sbf_data("data", test_data_file, data_size, block_size, { });
+			storage_backend_file sbf_data("data", test_data_file, data_size, block_size, false, { });
 
 			test_integrity(&sbf_data);
 
@@ -291,7 +291,7 @@ void test_integrities()
 			constexpr offset_t data_size = 5l * 1024l * 1024l * 1024l;
 			constexpr int block_size = 4096;
 
-			storage_backend_file sbf_data("data", test_data_file, data_size, block_size, { });
+			storage_backend_file sbf_data("data", test_data_file, data_size, block_size, false, { });
 
 			snapshots s("snapshot", ".", "snapshut.img", &sbf_data, true);
 
@@ -303,11 +303,11 @@ void test_integrities()
 		if (1) {
 			constexpr int block_size = 4096;
 
-			storage_backend *fast = new storage_backend_file("fast", "test/fast.dat", 1 * 1024 * 1024, block_size, { });
-			storage_backend *slow = new storage_backend_file("slow", "test/slow.dat", 5ll * 1024 * 1024 * 1024, block_size, { });
+			storage_backend *fast = new storage_backend_file("fast", "test/fast.dat", 1 * 1024 * 1024, block_size, false, { });
+			storage_backend *slow = new storage_backend_file("slow", "test/slow.dat", 5ll * 1024 * 1024 * 1024, block_size, false, { });
 
 			auto md = storage_backend_tiering::get_meta_dimensions(fast->get_size(), fast->get_block_size());
-			storage_backend *meta = new storage_backend_file("meta", "test/meta.dat", md.first * md.second, md.second, { });
+			storage_backend *meta = new storage_backend_file("meta", "test/meta.dat", md.first * md.second, md.second, false, { });
 
 			storage_backend_tiering t("storage-backend-tiering", fast, slow, meta, { });
 
@@ -343,8 +343,8 @@ void test_journal()
 
 		// test if what goes in, goes out
 		dolog(ll_info, " * 001 smoke test");
-		storage_backend_file sbf_data("data", test_data_file, data_size, block_size, { });
-		storage_backend_file sbf_journal("journal", test_journal_file, journal_size, block_size, { });
+		storage_backend_file sbf_data("data", test_data_file, data_size, block_size, false, { });
+		storage_backend_file sbf_journal("journal", test_journal_file, journal_size, block_size, false, { });
 
 		{
 			journal *j = new journal("journal", &sbf_data, &sbf_journal, 5);

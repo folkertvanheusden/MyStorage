@@ -23,6 +23,7 @@ storage:
   - type: storage-backend-file
     cfg:
       id: some-storage
+      is-block-device: false
       size: 2G
       file: data.dat
       mirrors:
