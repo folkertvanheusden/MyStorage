@@ -181,16 +181,8 @@ bool tiering::put_block(const block_nr_t block_nr, const uint8_t *const data)
 
 	for(int i=0; i<DESCRIPTORS_PER_BIN; i++) {
 		if (d->d[i].complete_block_nr_hash == complete_block_nr_hash) {
-			if (d->d[i].block_nr_slow_storage != block_nr) {  // TODO: hash collision
-				printf("hash: %lx\n", complete_block_nr_hash);
-				printf("expected block nr: %ld, got: %ld\n", block_nr, d->d[i].block_nr_slow_storage);
-				printf("slot: %d\n", i);
-				printf("age: %ld\n", d->d[i].age);
-				printf("flags: %ld\n\n", d->d[i].flags);
-			}
-
+			match = d->d[i].block_nr_slow_storage == block_nr;  // if not 'true': hash-collision
 			replace_slot = i;
-			match = true;
 			break;
 		}
 
