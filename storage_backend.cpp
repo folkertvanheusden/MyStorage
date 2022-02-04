@@ -150,6 +150,7 @@ bool storage_backend::get_multiple_blocks(const block_nr_t block_nr, const block
 void storage_backend::get_data(const offset_t offset, const uint32_t size, uint8_t **const out, int *const err)
 {
 	*err = 0;
+	*out = nullptr;
 
 	lg.un_lock_block_group(offset, size, block_size, true, true);
 
@@ -189,7 +190,7 @@ void storage_backend::get_data(const offset_t offset, const uint32_t size, uint8
 			if (!get_block(block_nr, &temp)) {
 				dolog(ll_error, "storage_backend::get_data(%s): failed to retrieve block %ld", id.c_str(), block_nr);
 				*err = EINVAL;
-				free(out);
+				free(*out);
 				break;
 			}
 
