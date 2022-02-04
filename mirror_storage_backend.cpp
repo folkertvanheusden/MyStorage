@@ -41,7 +41,7 @@ mirror_storage_backend * mirror_storage_backend::load_configuration(const YAML::
 
 	std::string id = yaml_get_string(cfg, "id", "module id");
 
-	storage_backend *sb = storage_backend::load_configuration(cfg["storage-backend"]);
+	storage_backend *sb = storage_backend::load_configuration(cfg["storage-backend"], { });
 
 	return new mirror_storage_backend(id, sb);
 }

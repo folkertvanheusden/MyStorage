@@ -13,7 +13,7 @@ servers:
             listen-addr: 0.0.0.0
             listen-port: 10809
 storage:
-  - type: tiering
+  - type: storage-backend-tiering
     cfg:
       id: tiering
       block-size: 65536
@@ -21,7 +21,7 @@ storage:
         type: storage-backend-file
         cfg:
           id: storage-fast
-          file: /home/folkert/temp/ramdisk/fast.dat
+          file: fast.dat
           mirrors:
             []
           block-size: 4096
@@ -43,7 +43,6 @@ storage:
           mirrors:
             []
           block-size: 4096
-          size: 32M
 logging:
   file: mystorage.log
 # debug / info / warning / error

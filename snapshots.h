@@ -80,7 +80,7 @@ public:
 	void put_data(const offset_t offset, const block & b, int *const err) override;
 	void put_data(const offset_t offset, const std::vector<uint8_t> & d, int *const err) override;
 
-	static snapshots * load_configuration(const YAML::Node & node);
+	static snapshots * load_configuration(const YAML::Node & node, std::optional<uint64_t> size);
 	YAML::Node emit_configuration() const override;
 
 	// periodically checks if a snapshot has finished

@@ -1,6 +1,7 @@
 #include <atomic>
 #include <errno.h>
 #include <map>
+#include <optional>
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
@@ -78,7 +79,7 @@ std::map<std::string, std::vector<base *> > load_configuration(const std::string
 	for(YAML::const_iterator it = cfg_storage.begin(); it != cfg_storage.end(); it++) {
 		const YAML::Node node = it->as<YAML::Node>();
 
-		storage_backend *sb = storage_backend::load_configuration(node);
+		storage_backend *sb = storage_backend::load_configuration(node, { });
 
 		storage.push_back(sb);
 		storage_rc.push_back(sb);

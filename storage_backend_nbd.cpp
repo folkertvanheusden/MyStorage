@@ -32,9 +32,12 @@ storage_backend_nbd::~storage_backend_nbd()
 {
 }
 
-storage_backend_nbd * storage_backend_nbd::load_configuration(const YAML::Node & node)
+storage_backend_nbd * storage_backend_nbd::load_configuration(const YAML::Node & node, const std::optional<uint64_t> size)
 {
 	dolog(ll_info, " * socket_backend_nbd::load_configuration");
+
+	if (size.has_value())
+		dolog(ll_info, "socket_backend_nbd::load_configuration: cannot override size");  // TODO
 
 	const YAML::Node cfg = node["cfg"];
 

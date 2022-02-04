@@ -36,6 +36,6 @@ public:
 
 	bool trim_zero(const offset_t offset, const uint32_t len, const bool trim, int *const err) override;
 
-	static storage_backend_nbd * load_configuration(const YAML::Node & node);
+	static storage_backend_nbd * load_configuration(const YAML::Node & node, const std::optional<uint64_t> size);
 	YAML::Node emit_configuration() const override;
 };

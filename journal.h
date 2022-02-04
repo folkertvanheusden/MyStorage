@@ -1,5 +1,6 @@
 #include <condition_variable>
 #include <mutex>
+#include <optional>
 #include <thread>
 
 #include "block.h"
@@ -87,5 +88,5 @@ public:
 	void operator()();
 
 	YAML::Node emit_configuration() const override;
-	static journal * load_configuration(const YAML::Node & node);
+	static journal * load_configuration(const YAML::Node & node, std::optional<uint64_t> size);
 };

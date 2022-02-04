@@ -58,9 +58,12 @@ YAML::Node storage_backend_aoe::emit_configuration() const
 	return out;
 }
 
-storage_backend_aoe * storage_backend_aoe::load_configuration(const YAML::Node & node)
+storage_backend_aoe * storage_backend_aoe::load_configuration(const YAML::Node & node, const std::optional<uint64_t> size)
 {
 	dolog(ll_info, " * socket_backend_aoe::load_configuration");
+
+	if (size.has_value())
+		dolog(ll_debug, "storage_backend_aoe::load_configuration: cannot override size setting");
 
 	const YAML::Node cfg = node["cfg"];
 

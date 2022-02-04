@@ -30,7 +30,7 @@ storage_backend_file::storage_backend_file(const std::string & id, const std::st
 		if (ftruncate(fd, size) == -1)
 			throw myformat("storage_backend_file(%s): failed to set size of backend file", id.c_str());
 	}
-	else if (size > st.st_size) {
+	else if (size > offset_t(st.st_size)) {
 		throw myformat("storage_backend_file(%s): on-disk file not big enough", id.c_str());
 	}
 
@@ -45,7 +45,7 @@ storage_backend_file::~storage_backend_file()
 	close(fd);
 }
 
-storage_backend_file * storage_backend_file::load_configuration(const YAML::Node & node)
+storage_backend_file * storage_backend_file::load_configuration(const YAML::Node & node, const std::optional<uint64_t> size)
 {
 	dolog(ll_info, " * socket_backend_file::load_configuration");
 
@@ -60,11 +60,11 @@ storage_backend_file * storage_backend_file::load_configuration(const YAML::Node
 
 	std::string file = yaml_get_string(cfg, "file", "deduplication store filename");
 
-	offset_t size = yaml_get_uint64_t(cfg, "size", "size (in bytes) of the file based-storage", true);
+	offset_t final_size = size.has_value() ? size.value() : yaml_get_uint64_t(cfg, "size", "size (in bytes) of the dedup-storage", true);
 
 	int block_size = yaml_get_int(cfg, "block-size", "block size of store");
 
-	return new storage_backend_file(id, file, size, block_size, mirrors);
+	return new storage_backend_file(id, file, final_size, block_size, mirrors);
 }
 
 YAML::Node storage_backend_file::emit_configuration() const

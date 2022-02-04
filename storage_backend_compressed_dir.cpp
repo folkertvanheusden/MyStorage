@@ -1,6 +1,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <optional>
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -58,7 +59,7 @@ YAML::Node storage_backend_compressed_dir::emit_configuration() const
 	return out;
 }
 
-storage_backend_compressed_dir * storage_backend_compressed_dir::load_configuration(const YAML::Node & node)
+storage_backend_compressed_dir * storage_backend_compressed_dir::load_configuration(const YAML::Node & node, const std::optional<uint64_t> size)
 {
 	dolog(ll_info, " * socket_backend_compressed_dir::load_configuration");
 
@@ -73,11 +74,12 @@ storage_backend_compressed_dir * storage_backend_compressed_dir::load_configurat
 
 	std::string directory = cfg["directory"].as<std::string>();
 	int block_size = cfg["block-size"].as<int>();
-	int total_size = cfg["size"].as<uint64_t>();
+
+	offset_t size_final = size.has_value() ? size.value() : cfg["size"].as<uint64_t>();
 
 	compresser *c = compresser::load_configuration(cfg["compresser"]);
 
-	return new storage_backend_compressed_dir(id, directory, block_size, total_size, c, mirrors);
+	return new storage_backend_compressed_dir(id, directory, block_size, size_final, c, mirrors);
 }
 
 bool storage_backend_compressed_dir::can_do_multiple_blocks() const
