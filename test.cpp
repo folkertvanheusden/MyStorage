@@ -135,8 +135,95 @@ void test_integrity(storage_backend *const sb)
 	}
 }
 
+storage_backend *create_sb_instance()
+{
+	const std::string test_data_file = "test/data.kch";
+
+	constexpr offset_t data_size = 1024l * 1024l * 1024l;
+	constexpr int block_size = 4096;
+
+	hash *h = new hash_sha384();
+	compresser *c = new compresser_lzo();
+	return new storage_backend_dedup("data", test_data_file, h, c, { }, data_size, block_size);
+}
+
+bool check_contents(const block *const b, const uint8_t v)
+{
+	for(size_t i=0; i<b->get_size(); i++) {
+		if (b->get_data()[i] != v)
+			return false;
+	}
+
+	return true;
+}
+
+void test_integrity_basic()
+{
+	{
+		storage_backend *sb = create_sb_instance();
+
+		// empty at start
+		int err = 0;
+		block *b = nullptr;
+		sb->get_data(0, sb->get_block_size(), &b, &err);
+		assert(err == 0);
+
+		assert(check_contents(b, 0x00));
+		delete b;
+
+		// data written is the same when read
+		uint8_t *bv = reinterpret_cast<uint8_t *>(malloc(sb->get_block_size()));
+		memset(bv, 0xff, sb->get_block_size());
+		block b2(bv, sb->get_block_size());
+
+		sb->put_data(0, b2, &err);
+		assert(err == 0);
+
+		sb->get_data(0, sb->get_block_size(), &b, &err);
+		assert(err == 0);
+
+		// data written again is the same when read
+		sb->put_data(0, b2, &err);
+		assert(err == 0);
+
+		sb->get_data(0, sb->get_block_size(), &b, &err);
+		assert(err == 0);
+
+		assert(*b == b2);
+
+		delete b;
+
+		// overwritten with something else
+		uint8_t *bv3 = reinterpret_cast<uint8_t *>(malloc(sb->get_block_size()));
+		memset(bv3, 0x80, sb->get_block_size());
+		block b3(bv3, sb->get_block_size());
+
+		sb->put_data(0, b3, &err);
+		assert(err == 0);
+
+		sb->get_data(0, sb->get_block_size(), &b, &err);
+		assert(err == 0);
+
+		assert(b3 == *b);
+
+		delete sb;
+
+		//
+		sb = create_sb_instance();
+		delete sb;
+
+		//
+	}
+
+	unlink("test/data.kch");
+}
+
 void test_integrities()
 {
+	if (1) {
+		test_integrity_basic();
+	}
+
 	if (0) {
 		const std::string test_data_file = "test/data.dat";
 
@@ -187,7 +274,7 @@ void test_integrities()
 		}
 	}
 
-	if (1) {
+	if (0) {
 		const std::string test_data_file = "test/data.dat";
 
 		constexpr offset_t data_size = 5l * 1024l * 1024l * 1024l;
@@ -386,6 +473,8 @@ int main(int argc, char *argv[])
 //	test_journal();
 
 	dolog(ll_info, " *** ALL FINE ***");
+
+	rmdir("test");
 
 	return 0;
 }
