@@ -141,7 +141,7 @@ storage_backend *create_sb_instance()
 	constexpr int block_size = 4096;
 
 	storage_backend *fast = new storage_backend_file("fast", "test/fast.dat", 1 * 1024 * 1024, block_size, { });
-	storage_backend *slow = new storage_backend_file("slow", "test/slow.dat", 5 * 1024 * 1024, block_size, { });
+	storage_backend *slow = new storage_backend_file("slow", "test/slow.dat", 5ll * 1024 * 1024 * 1024, block_size, { });
 
 	auto md = tiering::get_meta_dimensions(fast->get_size(), fast->get_block_size());
 	storage_backend *meta = new storage_backend_file("meta", "test/meta.dat", md.first * md.second, md.second, { });
@@ -304,7 +304,7 @@ void test_integrities()
 			constexpr int block_size = 4096;
 
 			storage_backend *fast = new storage_backend_file("fast", "test/fast.dat", 1 * 1024 * 1024, block_size, { });
-			storage_backend *slow = new storage_backend_file("slow", "test/slow.dat", 5 * 1024 * 1024, block_size, { });
+			storage_backend *slow = new storage_backend_file("slow", "test/slow.dat", 5ll * 1024 * 1024 * 1024, block_size, { });
 
 			auto md = tiering::get_meta_dimensions(fast->get_size(), fast->get_block_size());
 			storage_backend *meta = new storage_backend_file("meta", "test/meta.dat", md.first * md.second, md.second, { });
