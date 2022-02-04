@@ -17,6 +17,7 @@
 #include "storage_backend_file.h"
 #include "storage_backend_dedup.h"
 #include "storage_backend_nbd.h"
+#include "storage_backend_tiering.h"
 #include "time.h"
 #include "types.h"
 
@@ -135,71 +136,191 @@ void test_integrity(storage_backend *const sb)
 	}
 }
 
+storage_backend *create_sb_instance()
+{
+	constexpr int block_size = 4096;
+
+	storage_backend *fast = new storage_backend_file("fast", "test/fast.dat", 1 * 1024 * 1024, block_size, false, { });
+	storage_backend *slow = new storage_backend_file("slow", "test/slow.dat", 5ll * 1024 * 1024 * 1024, block_size, false, { });
+
+	auto md = storage_backend_tiering::get_meta_dimensions(fast->get_size(), fast->get_block_size());
+	storage_backend *meta = new storage_backend_file("meta", "test/meta.dat", md.first * md.second, md.second, false, { });
+
+	return new storage_backend_tiering("storage-backend-tiering", fast, slow, meta, { });
+}
+
+bool check_contents(const block *const b, const uint8_t v)
+{
+	for(size_t i=0; i<b->get_size(); i++) {
+		if (b->get_data()[i] != v)
+			return false;
+	}
+
+	return true;
+}
+
+void test_integrity_basic()
+{
+	{
+		storage_backend *sb = create_sb_instance();
+
+		// empty at start
+		int err = 0;
+		block *b = nullptr;
+		sb->get_data(0, sb->get_block_size(), &b, &err);
+		assert(err == 0);
+
+		assert(check_contents(b, 0x00));
+		delete b;
+
+		// data written is the same when read
+		uint8_t *bv = reinterpret_cast<uint8_t *>(malloc(sb->get_block_size()));
+		memset(bv, 0xff, sb->get_block_size());
+		block b2(bv, sb->get_block_size());
+
+		sb->put_data(0, b2, &err);
+		assert(err == 0);
+
+		sb->get_data(0, sb->get_block_size(), &b, &err);
+		assert(err == 0);
+
+		// data written again is the same when read
+		sb->put_data(0, b2, &err);
+		assert(err == 0);
+
+		sb->get_data(0, sb->get_block_size(), &b, &err);
+		assert(err == 0);
+
+		assert(*b == b2);
+
+		delete b;
+
+		// overwritten with something else
+		uint8_t *bv3 = reinterpret_cast<uint8_t *>(malloc(sb->get_block_size()));
+		memset(bv3, 0x80, sb->get_block_size());
+		block b3(bv3, sb->get_block_size());
+
+		sb->put_data(0, b3, &err);
+		assert(err == 0);
+
+		sb->get_data(0, sb->get_block_size(), &b, &err);
+		assert(err == 0);
+
+		assert(b3 == *b);
+
+		delete b;
+
+		delete sb;
+
+		//
+		sb = create_sb_instance();
+		sb->get_data(0, sb->get_block_size(), &b, &err);
+		assert(err == 0);
+		delete sb;
+
+		assert(b3 == *b);
+
+		//
+	}
+
+	os_assert(unlink("test/meta.dat"));
+	os_assert(unlink("test/slow.dat"));
+	os_assert(unlink("test/fast.dat"));
+}
+
 void test_integrities()
 {
-	if (0) {
-		const std::string test_data_file = "test/data.dat";
-
-		constexpr offset_t data_size = 5l * 1024l * 1024l * 1024l;
-		constexpr int block_size = 4096;
-
-		make_file(test_data_file, data_size);  // 1GB data file
-
-		storage_backend_file sbf_data("data", test_data_file, data_size, block_size, { });
-
-		test_integrity(&sbf_data);
-
-		os_assert(unlink(test_data_file.c_str()));
-	}
-
-	if (0) {
-		try {
-			socket_client_ipv4 sc("192.168.122.115", 10809);
-
-			storage_backend_nbd nbd("nbd-test", &sc, "test", 131072, { });
-
-			test_integrity(&nbd);
+	try {
+		if (1) {
+			test_integrity_basic();
 		}
-		catch(const std::string & error) {
-			fprintf(stderr, "exception: %s\n", error.c_str());
-			assert(0);
-		}
-	}
 
-	if (0) {
-		try {
-			const std::string test_data_file = "test/data.kch";
+		if (0) {
+			const std::string test_data_file = "test/data.dat";
 
-			constexpr offset_t data_size = 1024l * 1024l * 1024l;
+			constexpr offset_t data_size = 5l * 1024l * 1024l * 1024l;
 			constexpr int block_size = 4096;
 
-			hash *h = new hash_sha384();
-			compresser *c = new compresser_lzo();
-			storage_backend_dedup sbf_data("data", test_data_file, h, c, { }, data_size, block_size);
+			make_file(test_data_file, data_size);  // 1GB data file
+
+			storage_backend_file sbf_data("data", test_data_file, data_size, block_size, false, { });
 
 			test_integrity(&sbf_data);
 
 			os_assert(unlink(test_data_file.c_str()));
 		}
-		catch(const std::string & error) {
-			fprintf(stderr, "exception: %s\n", error.c_str());
-			assert(0);
+
+		if (0) {
+			try {
+				socket_client_ipv4 sc("192.168.122.115", 10809);
+
+				storage_backend_nbd nbd("nbd-test", &sc, "test", 131072, { });
+
+				test_integrity(&nbd);
+			}
+			catch(const std::string & error) {
+				fprintf(stderr, "exception: %s\n", error.c_str());
+				assert(0);
+			}
+		}
+
+		if (0) {
+			try {
+				const std::string test_data_file = "test/data.kch";
+
+				constexpr offset_t data_size = 1024l * 1024l * 1024l;
+				constexpr int block_size = 4096;
+
+				hash *h = new hash_sha384();
+				compresser *c = new compresser_lzo();
+				storage_backend_dedup sbf_data("data", test_data_file, h, c, { }, data_size, block_size);
+
+				test_integrity(&sbf_data);
+
+				os_assert(unlink(test_data_file.c_str()));
+			}
+			catch(const std::string & error) {
+				fprintf(stderr, "exception: %s\n", error.c_str());
+				assert(0);
+			}
+		}
+
+		if (0) {
+			const std::string test_data_file = "test/data.dat";
+
+			constexpr offset_t data_size = 5l * 1024l * 1024l * 1024l;
+			constexpr int block_size = 4096;
+
+			storage_backend_file sbf_data("data", test_data_file, data_size, block_size, false, { });
+
+			snapshots s("snapshot", ".", "snapshut.img", &sbf_data, true);
+
+			test_integrity(&s);
+
+			os_assert(unlink(test_data_file.c_str()));
+		}
+
+		if (1) {
+			constexpr int block_size = 4096;
+
+			storage_backend *fast = new storage_backend_file("fast", "test/fast.dat", 1 * 1024 * 1024, block_size, false, { });
+			storage_backend *slow = new storage_backend_file("slow", "test/slow.dat", 5ll * 1024 * 1024 * 1024, block_size, false, { });
+
+			auto md = storage_backend_tiering::get_meta_dimensions(fast->get_size(), fast->get_block_size());
+			storage_backend *meta = new storage_backend_file("meta", "test/meta.dat", md.first * md.second, md.second, false, { });
+
+			storage_backend_tiering t("storage-backend-tiering", fast, slow, meta, { });
+
+			test_integrity(&t);
+
+			os_assert(unlink("test/meta.dat"));
+			os_assert(unlink("test/slow.dat"));
+			os_assert(unlink("test/fast.dat"));
 		}
 	}
-
-	if (1) {
-		const std::string test_data_file = "test/data.dat";
-
-		constexpr offset_t data_size = 5l * 1024l * 1024l * 1024l;
-		constexpr int block_size = 4096;
-
-		storage_backend_file sbf_data("data", test_data_file, data_size, block_size, { });
-
-		snapshots s("snapshot", ".", "snapshut.img", &sbf_data, true);
-
-		test_integrity(&s);
-
-		os_assert(unlink(test_data_file.c_str()));
+	catch(const std::string & error) {
+		fprintf(stderr, "test_integritie exception: %s\n", error.c_str());
+		assert(0);
 	}
 }
 
@@ -222,8 +343,8 @@ void test_journal()
 
 		// test if what goes in, goes out
 		dolog(ll_info, " * 001 smoke test");
-		storage_backend_file sbf_data("data", test_data_file, data_size, block_size, { });
-		storage_backend_file sbf_journal("journal", test_journal_file, journal_size, block_size, { });
+		storage_backend_file sbf_data("data", test_data_file, data_size, block_size, false, { });
+		storage_backend_file sbf_journal("journal", test_journal_file, journal_size, block_size, false, { });
 
 		{
 			journal *j = new journal("journal", &sbf_data, &sbf_journal, 5);
@@ -386,6 +507,8 @@ int main(int argc, char *argv[])
 //	test_journal();
 
 	dolog(ll_info, " *** ALL FINE ***");
+
+	rmdir("test");
 
 	return 0;
 }

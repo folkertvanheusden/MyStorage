@@ -1,4 +1,6 @@
 #include <errno.h>
+#include <optional>
+#include <stdint.h>
 #include <string.h>
 
 #include "block.h"
@@ -620,7 +622,7 @@ YAML::Node journal::emit_configuration() const
 	return out;
 }
 
-journal * journal::load_configuration(const YAML::Node & node)
+journal * journal::load_configuration(const YAML::Node & node, std::optional<uint64_t> size, std::optional<int> block_size)
 {
 	dolog(ll_info, " * journal::load_configuration");
 
@@ -628,8 +630,8 @@ journal * journal::load_configuration(const YAML::Node & node)
 
 	std::string id = yaml_get_string(cfg, "id", "module id");
 
-	storage_backend *sb_data = storage_backend::load_configuration(cfg["storage-backend_data"]);
-	storage_backend *sb_journal = storage_backend::load_configuration(cfg["storage-backend_journal"]);
+	storage_backend *sb_data = storage_backend::load_configuration(cfg["storage-backend_data"], size, block_size);
+	storage_backend *sb_journal = storage_backend::load_configuration(cfg["storage-backend_journal"], { }, { });
 
 	int flush_interval = yaml_get_int(cfg, "flush-interval", "after how many milliseconds (max) to flush journalled blocks to disk");
 

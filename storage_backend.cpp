@@ -8,6 +8,7 @@
 #include "storage_backend_file.h"
 #include "storage_backend_nbd.h"
 #include "str.h"
+#include "storage_backend_tiering.h"
 #include "types.h"
 
 
@@ -27,7 +28,7 @@ storage_backend::~storage_backend()
 	}
 }
 
-storage_backend * storage_backend::load_configuration(const YAML::Node & node)
+storage_backend * storage_backend::load_configuration(const YAML::Node & node, const std::optional<uint64_t> size, std::optional<int> block_size)
 {
 	dolog(ll_info, " * socket_backend::load_configuration");
 
@@ -42,19 +43,21 @@ storage_backend * storage_backend::load_configuration(const YAML::Node & node)
 	}
 
 	if (type == "storage-backend-nbd")
-		return storage_backend_nbd::load_configuration(node);
+		return storage_backend_nbd::load_configuration(node, size, block_size);
 	else if (type == "storage-backend-file")
-		return storage_backend_file::load_configuration(node);
+		return storage_backend_file::load_configuration(node, size, block_size);
 	else if (type == "storage-backend-dedup")
-		return storage_backend_dedup::load_configuration(node);
+		return storage_backend_dedup::load_configuration(node, size, block_size);
 	else if (type == "storage-backend-compressed-dir")
-		return storage_backend_compressed_dir::load_configuration(node);
+		return storage_backend_compressed_dir::load_configuration(node, size, block_size);
 	else if (type == "storage-backend-aoe")
-		return storage_backend_aoe::load_configuration(node);
+		return storage_backend_aoe::load_configuration(node, size, block_size);
 	else if (type == "journal")
-		return journal::load_configuration(node);
+		return journal::load_configuration(node, size, block_size);
 	else if (type == "snapshots")
-		return snapshots::load_configuration(node);
+		return snapshots::load_configuration(node, size, block_size);
+	else if (type == "storage-backend-tiering")
+		return storage_backend_tiering::load_configuration(node, size, block_size);
 
 	dolog(ll_error, "storage_backend::load_configuration: storage type \"%s\" is not known", type.c_str());
 
@@ -147,6 +150,7 @@ bool storage_backend::get_multiple_blocks(const block_nr_t block_nr, const block
 void storage_backend::get_data(const offset_t offset, const uint32_t size, uint8_t **const out, int *const err)
 {
 	*err = 0;
+	*out = nullptr;
 
 	lg.un_lock_block_group(offset, size, block_size, true, true);
 
@@ -186,7 +190,7 @@ void storage_backend::get_data(const offset_t offset, const uint32_t size, uint8
 			if (!get_block(block_nr, &temp)) {
 				dolog(ll_error, "storage_backend::get_data(%s): failed to retrieve block %ld", id.c_str(), block_nr);
 				*err = EINVAL;
-				free(out);
+				free(*out);
 				break;
 			}
 

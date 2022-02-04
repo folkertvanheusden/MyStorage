@@ -31,11 +31,12 @@ storage:
         type: storage-backend-file
         cfg:
           id: storage
-          file: storage.dat
+          is-block-device: true
+          file: /dev/nbd0
           mirrors:
             []
           block-size: 65536
-          size: 5G
+          size: 0
       sparse-files: true
 logging:
   file: mystorage.log

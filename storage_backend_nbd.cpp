@@ -32,9 +32,12 @@ storage_backend_nbd::~storage_backend_nbd()
 {
 }
 
-storage_backend_nbd * storage_backend_nbd::load_configuration(const YAML::Node & node)
+storage_backend_nbd * storage_backend_nbd::load_configuration(const YAML::Node & node, const std::optional<uint64_t> size, std::optional<int> block_size)
 {
 	dolog(ll_info, " * socket_backend_nbd::load_configuration");
+
+	if (size.has_value())
+		dolog(ll_info, "socket_backend_nbd::load_configuration: cannot override size");  // TODO
 
 	const YAML::Node cfg = node["cfg"];
 
@@ -49,9 +52,9 @@ storage_backend_nbd * storage_backend_nbd::load_configuration(const YAML::Node &
 
 	socket_client *sc = socket_client::load_configuration(cfg["target"]);
 
-	int block_size = yaml_get_int(cfg, "block-size", "block size when transmitting blocks");
+	int final_block_size = block_size.has_value() ? block_size.value() : yaml_get_int(cfg, "block-size", "block size");
 
-	return new storage_backend_nbd(id, sc, export_name, block_size, mirrors);
+	return new storage_backend_nbd(id, sc, export_name, final_block_size, mirrors);
 }
 
 YAML::Node storage_backend_nbd::emit_configuration() const
@@ -258,7 +261,7 @@ bool storage_backend_nbd::get_multiple_blocks(const block_nr_t block_nr, const b
 			return false;
 		}
 
-		if (READ(fd, to, size_to_get) != size_to_get) {
+		if (READ(fd, to, size_to_get) != ssize_t(size_to_get)) {
 			dolog(ll_info, "storage_backend_nbd::get_block(%s): problem receiving NBD_CMD_READ data", export_name.c_str());
 			do_reconnect = true;
 			continue;

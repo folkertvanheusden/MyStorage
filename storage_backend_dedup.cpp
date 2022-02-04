@@ -50,7 +50,7 @@ storage_backend_dedup::~storage_backend_dedup()
 	dolog(ll_info, "~storage_backend_dedup: database closed");
 }
 
-storage_backend_dedup * storage_backend_dedup::load_configuration(const YAML::Node & node)
+storage_backend_dedup * storage_backend_dedup::load_configuration(const YAML::Node & node, const std::optional<uint64_t> size, std::optional<int> block_size)
 {
 	dolog(ll_info, " * socket_backend_dedup::load_configuration");
 
@@ -65,15 +65,15 @@ storage_backend_dedup * storage_backend_dedup::load_configuration(const YAML::No
 
 	std::string file = yaml_get_string(cfg, "file", "deduplication store filename");
 
-	offset_t size = yaml_get_uint64_t(cfg, "size", "size (in bytes) of the dedup-storage", true);
+	offset_t final_size = size.has_value() ? size.value() : yaml_get_uint64_t(cfg, "size", "size (in bytes) of the dedup-storage", true);
 
-	int block_size = yaml_get_int(cfg, "block-size", "block size of store (bigger is faster, smaller is better de-duplication)");
+	int final_block_size = block_size.has_value() ? block_size.value() : yaml_get_int(cfg, "block-size", "block size of store (bigger is faster, smaller is better de-duplication)");
 
 	compresser *c = compresser::load_configuration(yaml_get_yaml_node(cfg, "compresser", "compression schema"));
 
 	hash *h = hash::load_configuration(yaml_get_yaml_node(cfg, "hash", "hash-function selection"));
 
-	return new storage_backend_dedup(id, file, h, c, mirrors, size, block_size);
+	return new storage_backend_dedup(id, file, h, c, mirrors, final_size, final_block_size);
 }
 
 YAML::Node storage_backend_dedup::emit_configuration() const
@@ -266,13 +266,9 @@ std::optional<std::string> storage_backend_dedup::get_hash_for_block(const block
 
 bool storage_backend_dedup::get_block(const block_nr_t block_nr, uint8_t **const data)
 {
-	const offset_t offset = block_nr * block_size;
-
-	lgdd.un_lock_block_group(offset, block_size, block_size, true, true);
+	std::lock_guard<std::mutex> lck(lock);
 
 	bool rc = get_block_int(block_nr, data);
-
-	lgdd.un_lock_block_group(offset, block_size, block_size, false, true);
 
 	return rc;
 }
@@ -349,13 +345,9 @@ bool storage_backend_dedup::map_blocknr_to_hash(const block_nr_t block_nr, const
 
 bool storage_backend_dedup::put_block(const block_nr_t block_nr, const uint8_t *const data)
 {
-	const offset_t offset = block_nr * block_size;
-
-	lgdd.un_lock_block_group(offset, block_size, block_size, true, false);
+	std::lock_guard<std::mutex> lck(lock);
 
 	bool rc = put_block_int(block_nr, data);
-
-	lgdd.un_lock_block_group(offset, block_size, block_size, false, false);
 
 	return rc;
 }
@@ -544,7 +536,7 @@ bool storage_backend_dedup::trim_zero(const offset_t offset, const uint32_t len,
 
 	uint8_t *b0x00 = reinterpret_cast<uint8_t *>(calloc(1, block_size));
 
-	lgdd.un_lock_block_group(offset, len, block_size, true, false);
+	std::lock_guard<std::mutex> lck(lock);
 
 	offset_t work_offset = offset;
 	size_t work_size = len;
@@ -581,8 +573,6 @@ bool storage_backend_dedup::trim_zero(const offset_t offset, const uint32_t len,
 		work_offset += current_size;
 		work_size -= current_size;
 	}
-
-	lgdd.un_lock_block_group(offset, len, block_size, false, false);
 
 	free(b0x00);
 

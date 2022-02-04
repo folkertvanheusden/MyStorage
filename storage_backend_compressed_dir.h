@@ -37,5 +37,5 @@ public:
 	bool fsync() override;
 
 	YAML::Node emit_configuration() const override;
-	static storage_backend_compressed_dir * load_configuration(const YAML::Node & node);
+	static storage_backend_compressed_dir * load_configuration(const YAML::Node & node, const std::optional<uint64_t> size, std::optional<int> block_size);
 };

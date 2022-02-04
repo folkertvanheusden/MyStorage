@@ -1,4 +1,5 @@
 #include <kcpolydb.h>
+#include <mutex>
 #include <optional>
 #include <stdint.h>
 #include <string>
@@ -17,7 +18,7 @@ private:
 	hash          *const h { nullptr };
 	compresser    *const c { nullptr };
 	offset_t             size { 0 };
-	lock_group           lgdd;
+	std::mutex           lock;
 	kyotocabinet::PolyDB db;
 	const std::string    file;
 
@@ -57,6 +58,6 @@ public:
 
 	bool trim_zero(const offset_t offset, const uint32_t len, const bool trim, int *const err) override;
 
-	static storage_backend_dedup * load_configuration(const YAML::Node & node);
+	static storage_backend_dedup * load_configuration(const YAML::Node & node, const std::optional<uint64_t> size, std::optional<int> block_size);
 	YAML::Node emit_configuration() const override;
 };

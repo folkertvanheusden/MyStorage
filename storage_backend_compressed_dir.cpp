@@ -1,6 +1,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <optional>
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -12,6 +13,7 @@
 #include "logging.h"
 #include "storage_backend_compressed_dir.h"
 #include "str.h"
+#include "yaml-helpers.h"
 
 
 storage_backend_compressed_dir::storage_backend_compressed_dir(const std::string & id, const std::string & dir, const int block_size, const offset_t total_size, compresser *const c, const std::vector<mirror *> & mirrors) : storage_backend(id, block_size, mirrors), dir(dir), total_size(total_size), c(c)
@@ -48,7 +50,7 @@ YAML::Node storage_backend_compressed_dir::emit_configuration() const
 	out_cfg["mirrors"] = out_mirrors;
 	out_cfg["directory"] = dir;
 	out_cfg["block-size"] = block_size;
-	out_cfg["total-size"] = total_size;
+	out_cfg["size"] = total_size;
 	out_cfg["compresser"] = c->emit_configuration();
 
 	YAML::Node out;
@@ -58,7 +60,7 @@ YAML::Node storage_backend_compressed_dir::emit_configuration() const
 	return out;
 }
 
-storage_backend_compressed_dir * storage_backend_compressed_dir::load_configuration(const YAML::Node & node)
+storage_backend_compressed_dir * storage_backend_compressed_dir::load_configuration(const YAML::Node & node, const std::optional<uint64_t> size, std::optional<int> block_size)
 {
 	dolog(ll_info, " * socket_backend_compressed_dir::load_configuration");
 
@@ -72,12 +74,14 @@ storage_backend_compressed_dir * storage_backend_compressed_dir::load_configurat
 		mirrors.push_back(mirror::load_configuration(it->as<YAML::Node>()));
 
 	std::string directory = cfg["directory"].as<std::string>();
-	int block_size = cfg["block-size"].as<int>();
-	int total_size = cfg["total-size"].as<uint64_t>();
+
+	int final_block_size = block_size.has_value() ? block_size.value() : yaml_get_int(cfg, "block-size", "block size");
+
+	offset_t size_final = size.has_value() ? size.value() : cfg["size"].as<uint64_t>();
 
 	compresser *c = compresser::load_configuration(cfg["compresser"]);
 
-	return new storage_backend_compressed_dir(id, directory, block_size, total_size, c, mirrors);
+	return new storage_backend_compressed_dir(id, directory, final_block_size, size_final, c, mirrors);
 }
 
 bool storage_backend_compressed_dir::can_do_multiple_blocks() const

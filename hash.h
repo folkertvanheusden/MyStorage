@@ -26,3 +26,6 @@ public:
 
 // acoording to the libcrypt++ documentation, this uses polynomial 0xEDB88320
 uint32_t calc_crc(const uint8_t *const in, const size_t len);
+
+#define MURMUR3_32_SEED 0xEDB88320  // hopefully (see comments on wikipedia) this is a safe seed
+uint32_t murmur3_32(const uint8_t* key, size_t len, uint32_t seed);

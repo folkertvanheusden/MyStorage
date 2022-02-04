@@ -1,4 +1,5 @@
 #pragma once
+#include <optional>
 #include <stdint.h>
 #include <string>
 #include <vector>
@@ -55,5 +56,5 @@ public:
 
 	virtual bool trim_zero(const offset_t offset, const uint32_t len, const bool trim, int *const err) = 0;
 
-	static storage_backend * load_configuration(const YAML::Node & node);
+	static storage_backend * load_configuration(const YAML::Node & node, const std::optional<uint64_t> size, std::optional<int> block_size);
 };

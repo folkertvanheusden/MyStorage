@@ -1,0 +1,52 @@
+# define 1 or more servers
+servers:
+  - type: nbd
+    cfg:
+      id: NBD-server
+      storage-backends:
+# id of the storage that it will use
+# this same name is used when selecting an NBD-export
+        - tiering
+      socket-listeners:
+        - type: socket-listener-ipv4
+          cfg:
+            listen-addr: 0.0.0.0
+            listen-port: 10809
+storage:
+  - type: storage-backend-tiering
+    cfg:
+      id: tiering
+      block-size: 65536
+      storage-backend-fast:
+        type: storage-backend-file
+        cfg:
+          id: storage-fast
+          is-block-device: false
+          file: fast.dat
+          mirrors:
+            []
+          block-size: 4096
+          size: 64M
+      storage-backend-slow:
+        type: storage-backend-file
+        cfg:
+          id: storage-slow
+          is-block-device: false
+          file: slow.dat
+          mirrors:
+            []
+          block-size: 4096
+          size: 2G
+      storage-backend-meta:
+        type: storage-backend-file
+        cfg:
+          id: storage-meta
+          is-block-device: false
+          file: meta.dat
+          mirrors:
+            []
+logging:
+  file: mystorage.log
+# debug / info / warning / error
+  loglevel-files: debug
+  loglevel-screen: info
