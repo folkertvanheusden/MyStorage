@@ -1,8 +1,9 @@
 #include <assert.h>
 #include <cstdint>
 #include <string.h>
-#include <sys/random.h>
+#include <arpa/inet.h>
 
+#include "hash.h"
 #include "logging.h"
 #include "mirror.h"
 #include "str.h"
@@ -20,8 +21,6 @@ tiering::tiering(const std::string & id, storage_backend *const fast_storage, st
 		throw myformat("tiering(%s): slow- and fast storage must have the same block size", id.c_str());
 
 	dolog(ll_debug, "tiering(%s): %ld meta data slots", id.c_str(), map_n_entries);
-
-	init_zobrist();
 }
 
 tiering::~tiering()
@@ -31,29 +30,22 @@ tiering::~tiering()
 	delete meta_storage;
 }
 
-void tiering::init_zobrist()
+uint64_t tiering::hash_block_nr(const uint64_t block_nr)
 {
-	// TODO write to meta-storage, together with 'age'
-	getrandom(&zobrist[0], sizeof(uint64_t) * 256, 0);
-}
+	// TODO: replace by 128 murmur3 (and fold it in half)
+	uint32_t upper_word = htonl(block_nr >> 32);
+	uint32_t lower_word = htonl(block_nr);
 
-uint64_t tiering::perform_zobrist(const uint64_t block_nr)
-{
-	uint64_t out = 0;
+	uint32_t upper_hash = murmur3_32(reinterpret_cast<const uint8_t *>(&upper_word), sizeof(uint32_t), MURMUR3_32_SEED);
+	uint32_t lower_hash = murmur3_32(reinterpret_cast<const uint8_t *>(&lower_word), sizeof(uint32_t), MURMUR3_32_SEED);
 
-	for(int i=0; i<8; i++) {
-		uint8_t v = block_nr >> (8 * i);
-
-		out ^= zobrist[v];
-	}
-
-	return out;
+	return (uint64_t(upper_hash) << 32) | lower_hash;
 }
 
 bool tiering::get_block(const block_nr_t block_nr, uint8_t **const data)
 {
 	bool     ok = true;
-	uint64_t complete_block_nr_hash = perform_zobrist(block_nr);
+	uint64_t complete_block_nr_hash = hash_block_nr(block_nr);
 	// map_index is also the fast-storage index
 	uint64_t map_index = complete_block_nr_hash % map_n_entries;   // TODO make sure every bin gets visited as often as others
 	int      f_s_block_size = fast_storage->get_block_size();
@@ -161,7 +153,7 @@ bool tiering::get_block(const block_nr_t block_nr, uint8_t **const data)
 bool tiering::put_block(const block_nr_t block_nr, const uint8_t *const data)
 {
 	bool     ok = true;
-	uint64_t complete_block_nr_hash = perform_zobrist(block_nr);
+	uint64_t complete_block_nr_hash = hash_block_nr(block_nr);
 	// map_index is also the fast-storage index
 	uint64_t map_index = complete_block_nr_hash % map_n_entries;   // TODO make sure every bin gets visited as often as others
 	int      f_s_block_size = fast_storage->get_block_size();
@@ -193,7 +185,8 @@ bool tiering::put_block(const block_nr_t block_nr, const uint8_t *const data)
 				printf("hash: %lx\n", complete_block_nr_hash);
 				printf("expected block nr: %ld, got: %ld\n", block_nr, d->d[i].block_nr_slow_storage);
 				printf("slot: %d\n", i);
-				printf("flags: %ld\n", d->d[i].flags);
+				printf("age: %ld\n", d->d[i].age);
+				printf("flags: %ld\n\n", d->d[i].flags);
 			}
 
 			replace_slot = i;

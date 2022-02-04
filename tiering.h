@@ -31,14 +31,11 @@ private:
 
 	std::atomic_uint64_t   age { 0 };  // die moet ook opgeslagen worden in een meta-data file TODO
 
-	uint64_t               zobrist[256] { 0 };
-
 	// indexed by block_nr_hash % n_entries
 	uint64_t               map_n_entries { 0 };
 	descriptor_bin_t      *map { nullptr };
 
-	void init_zobrist();
-	uint64_t perform_zobrist(const uint64_t block_nr);
+	uint64_t hash_block_nr(const uint64_t block_nr);
 
 	bool can_do_multiple_blocks() const override;
 
