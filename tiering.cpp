@@ -64,7 +64,7 @@ bool tiering::get_block(const block_nr_t block_nr, uint8_t **const data)
 
 	uint8_t *dp = nullptr;
 	int err = 0;
-	meta_storage->get_data(map_index, sizeof(descriptor_bin_t), &dp, &err);
+	meta_storage->get_data(map_index * sizeof(descriptor_bin_t), sizeof(descriptor_bin_t), &dp, &err);
 
 	if (err) {
 		lgt.un_lock_block_group(map_index, 1, 1, false, false);
@@ -145,7 +145,7 @@ bool tiering::get_block(const block_nr_t block_nr, uint8_t **const data)
 	}
 
 	block bd(dp, sizeof(descriptor_bin_t));
-	meta_storage->put_data(map_index, bd, &err);  // TODO alleen 'replace_slot', niet de hele descriptor_bin_t
+	meta_storage->put_data(map_index * sizeof(descriptor_bin_t), bd, &err);  // TODO alleen 'replace_slot', niet de hele descriptor_bin_t
 
 	if (err) {
 		dolog(ll_error, "tiering::get_block(%s): failed storing block into meta storage (%s): %s", id.c_str(), meta_storage->get_id().c_str(), strerror(err));
@@ -172,7 +172,7 @@ bool tiering::put_block(const block_nr_t block_nr, const uint8_t *const data)
 
 	uint8_t *dp = nullptr;
 	int err = 0;
-	meta_storage->get_data(map_index, sizeof(descriptor_bin_t), &dp, &err);
+	meta_storage->get_data(map_index * sizeof(descriptor_bin_t), sizeof(descriptor_bin_t), &dp, &err);
 
 	if (err) {
 		lgt.un_lock_block_group(map_index, 1, 1, false, false);
@@ -265,7 +265,7 @@ bool tiering::put_block(const block_nr_t block_nr, const uint8_t *const data)
 	}
 
 	block bd(dp, sizeof(descriptor_bin_t));
-	meta_storage->put_data(map_index, bd, &err);
+	meta_storage->put_data(map_index * sizeof(descriptor_bin_t), bd, &err);
 
 	if (err) {
 		dolog(ll_error, "tiering::put_block(%s): failed storing block into meta storage (%s): %s", id.c_str(), meta_storage->get_id().c_str(), strerror(err));
