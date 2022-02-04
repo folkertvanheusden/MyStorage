@@ -47,8 +47,8 @@ add_executable(mystorage
 	storage_backend_file.cpp
 	storage_backend_dedup.cpp
 	storage_backend_nbd.cpp
+	storage_backend_tiering.cpp
 	str.cpp
-	tiering.cpp
 	time.cpp
 	yaml-helpers.cpp
 	)
@@ -88,8 +88,8 @@ add_executable(test-mystorage
 	storage_backend_file.cpp
 	storage_backend_dedup.cpp
 	storage_backend_nbd.cpp
+	storage_backend_tiering.cpp
 	str.cpp
-	tiering.cpp
 	time.cpp
 	yaml-helpers.cpp
 	)

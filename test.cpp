@@ -17,7 +17,7 @@
 #include "storage_backend_file.h"
 #include "storage_backend_dedup.h"
 #include "storage_backend_nbd.h"
-#include "tiering.h"
+#include "storage_backend_tiering.h"
 #include "time.h"
 #include "types.h"
 
@@ -143,10 +143,10 @@ storage_backend *create_sb_instance()
 	storage_backend *fast = new storage_backend_file("fast", "test/fast.dat", 1 * 1024 * 1024, block_size, { });
 	storage_backend *slow = new storage_backend_file("slow", "test/slow.dat", 5ll * 1024 * 1024 * 1024, block_size, { });
 
-	auto md = tiering::get_meta_dimensions(fast->get_size(), fast->get_block_size());
+	auto md = storage_backend_tiering::get_meta_dimensions(fast->get_size(), fast->get_block_size());
 	storage_backend *meta = new storage_backend_file("meta", "test/meta.dat", md.first * md.second, md.second, { });
 
-	return new tiering("tiering", fast, slow, meta, { });
+	return new storage_backend_tiering("storage-backend-tiering", fast, slow, meta, { });
 }
 
 bool check_contents(const block *const b, const uint8_t v)
@@ -306,10 +306,10 @@ void test_integrities()
 			storage_backend *fast = new storage_backend_file("fast", "test/fast.dat", 1 * 1024 * 1024, block_size, { });
 			storage_backend *slow = new storage_backend_file("slow", "test/slow.dat", 5ll * 1024 * 1024 * 1024, block_size, { });
 
-			auto md = tiering::get_meta_dimensions(fast->get_size(), fast->get_block_size());
+			auto md = storage_backend_tiering::get_meta_dimensions(fast->get_size(), fast->get_block_size());
 			storage_backend *meta = new storage_backend_file("meta", "test/meta.dat", md.first * md.second, md.second, { });
 
-			tiering t("tiering", fast, slow, meta, { });
+			storage_backend_tiering t("storage-backend-tiering", fast, slow, meta, { });
 
 			test_integrity(&t);
 

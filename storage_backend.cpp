@@ -8,7 +8,7 @@
 #include "storage_backend_file.h"
 #include "storage_backend_nbd.h"
 #include "str.h"
-#include "tiering.h"
+#include "storage_backend_tiering.h"
 #include "types.h"
 
 
@@ -56,8 +56,8 @@ storage_backend * storage_backend::load_configuration(const YAML::Node & node)
 		return journal::load_configuration(node);
 	else if (type == "snapshots")
 		return snapshots::load_configuration(node);
-	else if (type == "tiering")
-		return tiering::load_configuration(node);
+	else if (type == "storage-backend-tiering")
+		return storage_backend_tiering::load_configuration(node);
 
 	dolog(ll_error, "storage_backend::load_configuration: storage type \"%s\" is not known", type.c_str());
 

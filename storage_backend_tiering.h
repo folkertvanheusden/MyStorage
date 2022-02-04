@@ -20,7 +20,7 @@ typedef struct {
 	descriptor_t d[DESCRIPTORS_PER_BIN];
 } descriptor_bin_t;
 
-class tiering : public storage_backend
+class storage_backend_tiering : public storage_backend
 {
 private:
 	storage_backend *const fast_storage { nullptr };
@@ -43,8 +43,8 @@ private:
         bool put_block(const block_nr_t block_nr, const uint8_t *const data) override;
 
 public:
-	tiering(const std::string & id, storage_backend *const fast_storage, storage_backend *const slow_storage, storage_backend *const meta_storage, const std::vector<mirror *> & mirrors);
-	virtual ~tiering();
+	storage_backend_tiering(const std::string & id, storage_backend *const fast_storage, storage_backend *const slow_storage, storage_backend *const meta_storage, const std::vector<mirror *> & mirrors);
+	virtual ~storage_backend_tiering();
 
 	static std::pair<uint64_t, int> get_meta_dimensions(const offset_t fast_storage_size, const int fast_storage_block_size);
 
@@ -55,5 +55,5 @@ public:
 	bool fsync() override;
 
 	YAML::Node emit_configuration() const override;
-	static tiering *load_configuration(const YAML::Node&);
+	static storage_backend_tiering *load_configuration(const YAML::Node&);
 };
