@@ -48,7 +48,7 @@ YAML::Node storage_backend_compressed_dir::emit_configuration() const
 	out_cfg["mirrors"] = out_mirrors;
 	out_cfg["directory"] = dir;
 	out_cfg["block-size"] = block_size;
-	out_cfg["total-size"] = total_size;
+	out_cfg["size"] = total_size;
 	out_cfg["compresser"] = c->emit_configuration();
 
 	YAML::Node out;
@@ -73,7 +73,7 @@ storage_backend_compressed_dir * storage_backend_compressed_dir::load_configurat
 
 	std::string directory = cfg["directory"].as<std::string>();
 	int block_size = cfg["block-size"].as<int>();
-	int total_size = cfg["total-size"].as<uint64_t>();
+	int total_size = cfg["size"].as<uint64_t>();
 
 	compresser *c = compresser::load_configuration(cfg["compresser"]);
 
