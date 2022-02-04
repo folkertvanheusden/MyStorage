@@ -17,6 +17,7 @@
 #include "storage_backend_file.h"
 #include "storage_backend_dedup.h"
 #include "storage_backend_nbd.h"
+#include "tiering.h"
 #include "time.h"
 #include "types.h"
 
@@ -137,14 +138,13 @@ void test_integrity(storage_backend *const sb)
 
 storage_backend *create_sb_instance()
 {
-	const std::string test_data_file = "test/data.kch";
-
-	constexpr offset_t data_size = 1024l * 1024l * 1024l;
 	constexpr int block_size = 4096;
 
-	hash *h = new hash_sha384();
-	compresser *c = new compresser_lzo();
-	return new storage_backend_dedup("data", test_data_file, h, c, { }, data_size, block_size);
+	storage_backend *fast = new storage_backend_file("fast", "test/fast.dat", 1 * 1024 * 1024, block_size, { });
+	storage_backend *slow = new storage_backend_file("slow", "test/slow.dat", 5 * 1024 * 1024, block_size, { });
+	storage_backend *meta = new storage_backend_file("meta", "test/meta.dat", 64 * 1024, block_size, { });
+
+	return new tiering("tiering", fast, slow, meta, { });
 }
 
 bool check_contents(const block *const b, const uint8_t v)
@@ -206,16 +206,20 @@ void test_integrity_basic()
 
 		assert(b3 == *b);
 
+		delete b;
+
 		delete sb;
 
 		//
 		sb = create_sb_instance();
+		sb->get_data(0, sb->get_block_size(), &b, &err);
+		assert(err == 0);
 		delete sb;
+
+		assert(b3 == *b);
 
 		//
 	}
-
-	unlink("test/data.kch");
 }
 
 void test_integrities()
@@ -287,6 +291,22 @@ void test_integrities()
 		test_integrity(&s);
 
 		os_assert(unlink(test_data_file.c_str()));
+	}
+
+	if (1) {
+		constexpr int block_size = 4096;
+
+		storage_backend *fast = new storage_backend_file("fast", "test/fast.dat", 1 * 1024 * 1024, block_size, { });
+		storage_backend *slow = new storage_backend_file("slow", "test/slow.dat", 5 * 1024 * 1024, block_size, { });
+		storage_backend *meta = new storage_backend_file("meta", "test/meta.dat", 64 * 1024, block_size, { });
+
+		tiering t("tiering", fast, slow, meta, { });
+
+		test_integrity(&t);
+
+		os_assert(unlink("test/meta.dat"));
+		os_assert(unlink("test/slow.dat"));
+		os_assert(unlink("test/fast.dat"));
 	}
 }
 

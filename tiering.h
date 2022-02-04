@@ -46,7 +46,7 @@ private:
         bool put_block(const block_nr_t block_nr, const uint8_t *const data) override;
 
 public:
-	tiering(const std::string & id, storage_backend *const fast_storage, storage_backend *const slow_storage, storage_backend *const meta_storage, const int block_size, const std::vector<mirror *> & mirrors);
+	tiering(const std::string & id, storage_backend *const fast_storage, storage_backend *const slow_storage, storage_backend *const meta_storage, const std::vector<mirror *> & mirrors);
 	virtual ~tiering();
 
 	offset_t get_size() const override;
