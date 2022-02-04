@@ -32,7 +32,7 @@ storage_backend_nbd::~storage_backend_nbd()
 {
 }
 
-storage_backend_nbd * storage_backend_nbd::load_configuration(const YAML::Node & node, const std::optional<uint64_t> size)
+storage_backend_nbd * storage_backend_nbd::load_configuration(const YAML::Node & node, const std::optional<uint64_t> size, std::optional<int> block_size)
 {
 	dolog(ll_info, " * socket_backend_nbd::load_configuration");
 
@@ -52,9 +52,9 @@ storage_backend_nbd * storage_backend_nbd::load_configuration(const YAML::Node &
 
 	socket_client *sc = socket_client::load_configuration(cfg["target"]);
 
-	int block_size = yaml_get_int(cfg, "block-size", "block size when transmitting blocks");
+	int final_block_size = block_size.has_value() ? block_size.value() : yaml_get_int(cfg, "block-size", "block size");
 
-	return new storage_backend_nbd(id, sc, export_name, block_size, mirrors);
+	return new storage_backend_nbd(id, sc, export_name, final_block_size, mirrors);
 }
 
 YAML::Node storage_backend_nbd::emit_configuration() const

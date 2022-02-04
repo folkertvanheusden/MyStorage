@@ -390,7 +390,7 @@ YAML::Node storage_backend_tiering::emit_configuration() const
 	return out;
 }
 
-storage_backend_tiering * storage_backend_tiering::load_configuration(const YAML::Node & node, const std::optional<uint64_t> size)
+storage_backend_tiering * storage_backend_tiering::load_configuration(const YAML::Node & node, const std::optional<uint64_t> size, std::optional<int> block_size)
 {
 	dolog(ll_info, " * storage_backend_tiering::load_configuration");
 
@@ -406,11 +406,11 @@ storage_backend_tiering * storage_backend_tiering::load_configuration(const YAML
 	for(YAML::const_iterator it = y_mirrors.begin(); it != y_mirrors.end(); it++)
 		mirrors.push_back(mirror::load_configuration(it->as<YAML::Node>()));
 
-	storage_backend *sb_slow = storage_backend::load_configuration(cfg["storage-backend-slow"], { });
-	storage_backend *sb_fast = storage_backend::load_configuration(cfg["storage-backend-fast"], { });
+	storage_backend *sb_slow = storage_backend::load_configuration(cfg["storage-backend-slow"], { }, { });
+	storage_backend *sb_fast = storage_backend::load_configuration(cfg["storage-backend-fast"], { }, { });
 
 	auto md = storage_backend_tiering::get_meta_dimensions(sb_fast->get_size(), sb_fast->get_block_size());
-	storage_backend *meta = storage_backend::load_configuration(cfg["storage-backend-meta"], md.first * md.second);
+	storage_backend *meta = storage_backend::load_configuration(cfg["storage-backend-meta"], md.first * md.second, md.second);
 
 	return new storage_backend_tiering(id, sb_fast, sb_slow, meta, mirrors);
 }

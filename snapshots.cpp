@@ -302,7 +302,7 @@ void snapshots::put_data(const offset_t offset, const std::vector<uint8_t> & d, 
 	}
 }
 
-snapshots * snapshots::load_configuration(const YAML::Node & node, std::optional<uint64_t> size)
+snapshots * snapshots::load_configuration(const YAML::Node & node, std::optional<uint64_t> size, std::optional<int> block_size)
 {
 	dolog(ll_info, " * snapshots::load_configuration");
 
@@ -311,7 +311,7 @@ snapshots * snapshots::load_configuration(const YAML::Node & node, std::optional
 	std::string id = yaml_get_string(cfg, "id", "id of snapshot object");
 	std::string storage_directory = yaml_get_string(cfg, "storage-directory", "directory where snapshots are placed");
 	std::string filename_template = yaml_get_string(cfg, "filename-template", "template of snapshot filenames (see \"man strftime\")");
-	storage_backend *sb = storage_backend::load_configuration(cfg["storage-backend"], size);
+	storage_backend *sb = storage_backend::load_configuration(cfg["storage-backend"], size, block_size);
 	bool sparse_files = yaml_get_bool(cfg, "sparse-files", "create snapshots with holes where possible (to reduce diskspace)");
 
 	return new snapshots(id, storage_directory, filename_template, sb, sparse_files);

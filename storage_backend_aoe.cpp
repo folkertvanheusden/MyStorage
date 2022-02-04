@@ -14,6 +14,7 @@
 #include "net.h"
 #include "storage_backend_aoe.h"
 #include "str.h"
+#include "yaml-helpers.h"
 
 
 storage_backend_aoe::storage_backend_aoe(const std::string & id, const std::vector<mirror *> & mirrors, const std::string & dev_name, const uint8_t my_mac[6], const uint16_t major, const uint8_t minor, const int mtu_size, const int block_size) : storage_backend(id, block_size, mirrors), dev_name(dev_name), major(major), minor(minor)
@@ -58,7 +59,7 @@ YAML::Node storage_backend_aoe::emit_configuration() const
 	return out;
 }
 
-storage_backend_aoe * storage_backend_aoe::load_configuration(const YAML::Node & node, const std::optional<uint64_t> size)
+storage_backend_aoe * storage_backend_aoe::load_configuration(const YAML::Node & node, const std::optional<uint64_t> size, std::optional<int> block_size)
 {
 	dolog(ll_info, " * socket_backend_aoe::load_configuration");
 
@@ -78,7 +79,7 @@ storage_backend_aoe * storage_backend_aoe::load_configuration(const YAML::Node &
 	uint16_t major = cfg["major"].as<uint16_t>();
 	uint8_t minor = cfg["minor"].as<uint8_t>();
 	int mtu_size = cfg["mtu-size"].as<int>();
-	int block_size = cfg["block-size"].as<int>();
+	int final_block_size = block_size.has_value() ? block_size.value() : yaml_get_int(cfg, "block-size", "block size");
 
 	std::string mac = cfg["my-mac"].as<std::string>();
 
@@ -88,7 +89,7 @@ storage_backend_aoe * storage_backend_aoe::load_configuration(const YAML::Node &
 		return nullptr;
 	}
 
-	return new storage_backend_aoe(name, mirrors, dev_name, my_mac, major, minor, mtu_size, block_size);
+	return new storage_backend_aoe(name, mirrors, dev_name, my_mac, major, minor, mtu_size, final_block_size);
 }
 
 typedef enum { ACS_discover, ACS_discover_sent, ACS_identify, ACS_identify_sent, ACS_running, ACS_end } aoe_connect_state_t;

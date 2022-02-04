@@ -42,7 +42,6 @@ storage:
           file: meta.dat
           mirrors:
             []
-          block-size: 4096
 logging:
   file: mystorage.log
 # debug / info / warning / error

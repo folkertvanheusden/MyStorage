@@ -45,7 +45,7 @@ storage_backend_file::~storage_backend_file()
 	close(fd);
 }
 
-storage_backend_file * storage_backend_file::load_configuration(const YAML::Node & node, const std::optional<uint64_t> size)
+storage_backend_file * storage_backend_file::load_configuration(const YAML::Node & node, const std::optional<uint64_t> size, std::optional<int> block_size)
 {
 	dolog(ll_info, " * socket_backend_file::load_configuration");
 
@@ -62,9 +62,9 @@ storage_backend_file * storage_backend_file::load_configuration(const YAML::Node
 
 	offset_t final_size = size.has_value() ? size.value() : yaml_get_uint64_t(cfg, "size", "size (in bytes) of the dedup-storage", true);
 
-	int block_size = yaml_get_int(cfg, "block-size", "block size of store");
+	int final_block_size = block_size.has_value() ? block_size.value() : yaml_get_int(cfg, "block-size", "block size");
 
-	return new storage_backend_file(id, file, final_size, block_size, mirrors);
+	return new storage_backend_file(id, file, final_size, final_block_size, mirrors);
 }
 
 YAML::Node storage_backend_file::emit_configuration() const

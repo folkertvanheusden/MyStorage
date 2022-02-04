@@ -56,5 +56,5 @@ public:
 
 	virtual bool trim_zero(const offset_t offset, const uint32_t len, const bool trim, int *const err) = 0;
 
-	static storage_backend * load_configuration(const YAML::Node & node, const std::optional<uint64_t> size);
+	static storage_backend * load_configuration(const YAML::Node & node, const std::optional<uint64_t> size, std::optional<int> block_size);
 };

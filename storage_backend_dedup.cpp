@@ -50,7 +50,7 @@ storage_backend_dedup::~storage_backend_dedup()
 	dolog(ll_info, "~storage_backend_dedup: database closed");
 }
 
-storage_backend_dedup * storage_backend_dedup::load_configuration(const YAML::Node & node, const std::optional<uint64_t> size)
+storage_backend_dedup * storage_backend_dedup::load_configuration(const YAML::Node & node, const std::optional<uint64_t> size, std::optional<int> block_size)
 {
 	dolog(ll_info, " * socket_backend_dedup::load_configuration");
 
@@ -67,13 +67,13 @@ storage_backend_dedup * storage_backend_dedup::load_configuration(const YAML::No
 
 	offset_t final_size = size.has_value() ? size.value() : yaml_get_uint64_t(cfg, "size", "size (in bytes) of the dedup-storage", true);
 
-	int block_size = yaml_get_int(cfg, "block-size", "block size of store (bigger is faster, smaller is better de-duplication)");
+	int final_block_size = block_size.has_value() ? block_size.value() : yaml_get_int(cfg, "block-size", "block size of store (bigger is faster, smaller is better de-duplication)");
 
 	compresser *c = compresser::load_configuration(yaml_get_yaml_node(cfg, "compresser", "compression schema"));
 
 	hash *h = hash::load_configuration(yaml_get_yaml_node(cfg, "hash", "hash-function selection"));
 
-	return new storage_backend_dedup(id, file, h, c, mirrors, final_size, block_size);
+	return new storage_backend_dedup(id, file, h, c, mirrors, final_size, final_block_size);
 }
 
 YAML::Node storage_backend_dedup::emit_configuration() const
