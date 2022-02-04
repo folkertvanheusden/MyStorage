@@ -1,4 +1,5 @@
 #include <kcpolydb.h>
+#include <mutex>
 #include <optional>
 #include <stdint.h>
 #include <string>
@@ -17,7 +18,7 @@ private:
 	hash          *const h { nullptr };
 	compresser    *const c { nullptr };
 	offset_t             size { 0 };
-	lock_group           lgdd;
+	std::mutex           lock;
 	kyotocabinet::PolyDB db;
 	const std::string    file;
 
