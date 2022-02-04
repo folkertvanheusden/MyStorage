@@ -6,7 +6,7 @@
 #include "storage_backend.h"
 
 
-#define DESCRIPTORS_PER_BIN 8
+#define DESCRIPTORS_PER_BIN 2  // makes the structure exactly 64 bytes (1 cache line)
 #define TF_dirty            1
 
 typedef struct {
