@@ -110,7 +110,7 @@ bool snapshot_state::copy_block(const block_nr_t block_nr)
 		return true;
 	}
 
-	if (todo != block_size) {
+	if (todo != size_t(block_size)) {
 		dolog(ll_error, "snapshot_state::copy_block(%s): data-block is %ld bytes, expecting %d", complete_filename.c_str(), todo, block_size);
 		delete b;
 		return false;
