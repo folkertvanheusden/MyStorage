@@ -142,7 +142,9 @@ storage_backend *create_sb_instance()
 
 	storage_backend *fast = new storage_backend_file("fast", "test/fast.dat", 1 * 1024 * 1024, block_size, { });
 	storage_backend *slow = new storage_backend_file("slow", "test/slow.dat", 5 * 1024 * 1024, block_size, { });
-	storage_backend *meta = new storage_backend_file("meta", "test/meta.dat", 64 * 1024, block_size, { });
+
+	auto md = tiering::get_meta_dimensions(fast->get_size(), fast->get_block_size());
+	storage_backend *meta = new storage_backend_file("meta", "test/meta.dat", md.first * md.second, md.second, { });
 
 	return new tiering("tiering", fast, slow, meta, { });
 }
@@ -220,93 +222,105 @@ void test_integrity_basic()
 
 		//
 	}
+
+	os_assert(unlink("test/meta.dat"));
+	os_assert(unlink("test/slow.dat"));
+	os_assert(unlink("test/fast.dat"));
 }
 
 void test_integrities()
 {
-	if (1) {
-		test_integrity_basic();
-	}
-
-	if (0) {
-		const std::string test_data_file = "test/data.dat";
-
-		constexpr offset_t data_size = 5l * 1024l * 1024l * 1024l;
-		constexpr int block_size = 4096;
-
-		make_file(test_data_file, data_size);  // 1GB data file
-
-		storage_backend_file sbf_data("data", test_data_file, data_size, block_size, { });
-
-		test_integrity(&sbf_data);
-
-		os_assert(unlink(test_data_file.c_str()));
-	}
-
-	if (0) {
-		try {
-			socket_client_ipv4 sc("192.168.122.115", 10809);
-
-			storage_backend_nbd nbd("nbd-test", &sc, "test", 131072, { });
-
-			test_integrity(&nbd);
+	try {
+		if (1) {
+			test_integrity_basic();
 		}
-		catch(const std::string & error) {
-			fprintf(stderr, "exception: %s\n", error.c_str());
-			assert(0);
-		}
-	}
 
-	if (0) {
-		try {
-			const std::string test_data_file = "test/data.kch";
+		if (0) {
+			const std::string test_data_file = "test/data.dat";
 
-			constexpr offset_t data_size = 1024l * 1024l * 1024l;
+			constexpr offset_t data_size = 5l * 1024l * 1024l * 1024l;
 			constexpr int block_size = 4096;
 
-			hash *h = new hash_sha384();
-			compresser *c = new compresser_lzo();
-			storage_backend_dedup sbf_data("data", test_data_file, h, c, { }, data_size, block_size);
+			make_file(test_data_file, data_size);  // 1GB data file
+
+			storage_backend_file sbf_data("data", test_data_file, data_size, block_size, { });
 
 			test_integrity(&sbf_data);
 
 			os_assert(unlink(test_data_file.c_str()));
 		}
-		catch(const std::string & error) {
-			fprintf(stderr, "exception: %s\n", error.c_str());
-			assert(0);
+
+		if (0) {
+			try {
+				socket_client_ipv4 sc("192.168.122.115", 10809);
+
+				storage_backend_nbd nbd("nbd-test", &sc, "test", 131072, { });
+
+				test_integrity(&nbd);
+			}
+			catch(const std::string & error) {
+				fprintf(stderr, "exception: %s\n", error.c_str());
+				assert(0);
+			}
+		}
+
+		if (0) {
+			try {
+				const std::string test_data_file = "test/data.kch";
+
+				constexpr offset_t data_size = 1024l * 1024l * 1024l;
+				constexpr int block_size = 4096;
+
+				hash *h = new hash_sha384();
+				compresser *c = new compresser_lzo();
+				storage_backend_dedup sbf_data("data", test_data_file, h, c, { }, data_size, block_size);
+
+				test_integrity(&sbf_data);
+
+				os_assert(unlink(test_data_file.c_str()));
+			}
+			catch(const std::string & error) {
+				fprintf(stderr, "exception: %s\n", error.c_str());
+				assert(0);
+			}
+		}
+
+		if (0) {
+			const std::string test_data_file = "test/data.dat";
+
+			constexpr offset_t data_size = 5l * 1024l * 1024l * 1024l;
+			constexpr int block_size = 4096;
+
+			storage_backend_file sbf_data("data", test_data_file, data_size, block_size, { });
+
+			snapshots s("snapshot", ".", "snapshut.img", &sbf_data, true);
+
+			test_integrity(&s);
+
+			os_assert(unlink(test_data_file.c_str()));
+		}
+
+		if (1) {
+			constexpr int block_size = 4096;
+
+			storage_backend *fast = new storage_backend_file("fast", "test/fast.dat", 1 * 1024 * 1024, block_size, { });
+			storage_backend *slow = new storage_backend_file("slow", "test/slow.dat", 5 * 1024 * 1024, block_size, { });
+
+			auto md = tiering::get_meta_dimensions(fast->get_size(), fast->get_block_size());
+			storage_backend *meta = new storage_backend_file("meta", "test/meta.dat", md.first * md.second, md.second, { });
+
+			tiering t("tiering", fast, slow, meta, { });
+
+			test_integrity(&t);
+
+			os_assert(unlink("test/meta.dat"));
+			os_assert(unlink("test/slow.dat"));
+			os_assert(unlink("test/fast.dat"));
 		}
 	}
-
-	if (0) {
-		const std::string test_data_file = "test/data.dat";
-
-		constexpr offset_t data_size = 5l * 1024l * 1024l * 1024l;
-		constexpr int block_size = 4096;
-
-		storage_backend_file sbf_data("data", test_data_file, data_size, block_size, { });
-
-		snapshots s("snapshot", ".", "snapshut.img", &sbf_data, true);
-
-		test_integrity(&s);
-
-		os_assert(unlink(test_data_file.c_str()));
-	}
-
-	if (1) {
-		constexpr int block_size = 4096;
-
-		storage_backend *fast = new storage_backend_file("fast", "test/fast.dat", 1 * 1024 * 1024, block_size, { });
-		storage_backend *slow = new storage_backend_file("slow", "test/slow.dat", 5 * 1024 * 1024, block_size, { });
-		storage_backend *meta = new storage_backend_file("meta", "test/meta.dat", 64 * 1024, block_size, { });
-
-		tiering t("tiering", fast, slow, meta, { });
-
-		test_integrity(&t);
-
-		os_assert(unlink("test/meta.dat"));
-		os_assert(unlink("test/slow.dat"));
-		os_assert(unlink("test/fast.dat"));
+	catch(const std::string & error) {
+		fprintf(stderr, "test_integritie exception: %s\n", error.c_str());
+		assert(0);
 	}
 }
 

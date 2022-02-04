@@ -15,12 +15,17 @@ tiering::tiering(const std::string & id, storage_backend *const fast_storage, st
 	storage_backend(id, fast_storage->get_block_size(), mirrors),
 	fast_storage(fast_storage), slow_storage(slow_storage), meta_storage(meta_storage)
 {
-	map_n_entries = meta_storage->get_size() / sizeof(descriptor_bin_t);
-
 	if (fast_storage->get_block_size() != slow_storage->get_block_size())
 		throw myformat("tiering(%s): slow- and fast storage must have the same block size", id.c_str());
 
+	map_n_entries = meta_storage->get_size() / sizeof(descriptor_bin_t);
+
 	dolog(ll_debug, "tiering(%s): %ld meta data slots", id.c_str(), map_n_entries);
+
+	uint64_t expecting_n = get_meta_dimensions(fast_storage->get_size(), fast_storage->get_block_size()).first;
+
+	if (expecting_n != map_n_entries)
+		throw myformat("tiering: mismatch between expected number of meta-entries (%ld) and configured number (%ld)", expecting_n, map_n_entries);
 }
 
 tiering::~tiering()
@@ -28,6 +33,11 @@ tiering::~tiering()
 	delete fast_storage;
 	delete slow_storage;
 	delete meta_storage;
+}
+
+std::pair<uint64_t, int> tiering::get_meta_dimensions(const offset_t fast_storage_size, const int fast_storage_block_size)
+{
+	return { (fast_storage_size + fast_storage_block_size - 1) / fast_storage_block_size, sizeof(descriptor_bin_t) };
 }
 
 uint64_t tiering::hash_block_nr(const uint64_t block_nr)

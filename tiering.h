@@ -46,6 +46,8 @@ public:
 	tiering(const std::string & id, storage_backend *const fast_storage, storage_backend *const slow_storage, storage_backend *const meta_storage, const std::vector<mirror *> & mirrors);
 	virtual ~tiering();
 
+	static std::pair<uint64_t, int> get_meta_dimensions(const offset_t fast_storage_size, const int fast_storage_block_size);
+
 	offset_t get_size() const override;
 
 	bool trim_zero(const offset_t offset, const uint32_t len, const bool trim, int *const err) override;
