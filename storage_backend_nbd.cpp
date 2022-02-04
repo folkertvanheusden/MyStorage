@@ -258,7 +258,7 @@ bool storage_backend_nbd::get_multiple_blocks(const block_nr_t block_nr, const b
 			return false;
 		}
 
-		if (READ(fd, to, size_to_get) != size_to_get) {
+		if (READ(fd, to, size_to_get) != ssize_t(size_to_get)) {
 			dolog(ll_info, "storage_backend_nbd::get_block(%s): problem receiving NBD_CMD_READ data", export_name.c_str());
 			do_reconnect = true;
 			continue;
