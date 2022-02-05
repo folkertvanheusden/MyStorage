@@ -66,7 +66,7 @@ storage_backend_file * storage_backend_file::load_configuration(const YAML::Node
 
 	std::string file = yaml_get_string(cfg, "file", "deduplication store filename");
 
-	offset_t temp_size = 0;
+	offset_t final_size = 0;
 	if (is_block_dev) {
 		uint64_t bd_size = 0;
 
@@ -86,13 +86,11 @@ storage_backend_file * storage_backend_file::load_configuration(const YAML::Node
 
 		close(fd);
 		
-		temp_size = bd_size;
+		final_size = bd_size;
 	}
 	else {
-		temp_size = yaml_get_uint64_t(cfg, "size", "size (in bytes) of the dedup-storage", true);
+		final_size = size.has_value() ? size.value() : yaml_get_uint64_t(cfg, "size", "size (in bytes) of the dedup-storage", true);
 	}
-
-	offset_t final_size = size.has_value() ? size.value() : temp_size;
 
 	int final_block_size = block_size.has_value() ? block_size.value() : yaml_get_int(cfg, "block-size", "block size");
 
