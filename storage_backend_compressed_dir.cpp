@@ -16,7 +16,11 @@
 #include "yaml-helpers.h"
 
 
-storage_backend_compressed_dir::storage_backend_compressed_dir(const std::string & id, const std::string & dir, const int block_size, const offset_t total_size, compresser *const c, const std::vector<mirror *> & mirrors) : storage_backend(id, block_size, mirrors), dir(dir), total_size(total_size), c(c)
+storage_backend_compressed_dir::storage_backend_compressed_dir(const std::string & id, const std::string & dir, const int block_size, const offset_t total_size, compresser *const c, const std::vector<mirror *> & mirrors) :
+	storage_backend(id, block_size, mirrors),
+	dir(dir),
+	total_size(total_size),
+	c(c)
 {
 	dir_structure = opendir(dir.c_str());
 	if (!dir_structure)

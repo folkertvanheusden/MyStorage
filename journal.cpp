@@ -12,7 +12,10 @@
 #include "yaml-helpers.h"
 
 
-journal::journal(const std::string & id, storage_backend *const data, storage_backend *const journal_, const unsigned int flush_interval) : storage_backend(id, data->get_block_size(), { }), data(data), journal_(journal_), flush_interval(flush_interval)
+journal::journal(const std::string & id, storage_backend *const data, storage_backend *const journal_, const unsigned int flush_interval) :
+	storage_backend(id, data->get_block_size(), { }),
+	data(data), journal_(journal_),
+	flush_interval(flush_interval)
 {
 	// retrieve journal meta data from storage
 	block *b = nullptr;

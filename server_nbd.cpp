@@ -22,7 +22,10 @@ const char *const nbd_cmd_names[] = { "read", "write", "disc", "flush", "trim", 
 typedef enum { nbd_st_init, nbd_st_client_flags, nbd_st_options, nbd_st_transmission, nbd_st_terminate } nbd_state_t;
 constexpr const char *const nbd_st_strings[] { "init", "client flags", "options", "transmission", "terminate" };
 
-nbd::nbd(const std::string & id, const std::vector<socket_listener *> & socket_listeners, const std::vector<storage_backend *> & storage_backends) : server(id), storage_backends(storage_backends), socket_listeners(socket_listeners)
+nbd::nbd(const std::string & id, const std::vector<socket_listener *> & socket_listeners, const std::vector<storage_backend *> & storage_backends) :
+	server(id),
+	storage_backends(storage_backends),
+	socket_listeners(socket_listeners)
 {
 	if (storage_backends.empty())
 		throw "nbd: backends list is empty";

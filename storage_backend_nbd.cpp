@@ -18,7 +18,10 @@
 #include "yaml-helpers.h"
 
 
-storage_backend_nbd::storage_backend_nbd(const std::string & id, socket_client *const sc, const std::string & export_name, int block_size, const std::vector<mirror *> & mirrors) : storage_backend(id, block_size, mirrors), sc(sc), export_name(export_name)
+storage_backend_nbd::storage_backend_nbd(const std::string & id, socket_client *const sc, const std::string & export_name, int block_size, const std::vector<mirror *> & mirrors) :
+	storage_backend(id, block_size, mirrors),
+	sc(sc),
+	export_name(export_name)
 {
 	seq_nr = time(nullptr);
 

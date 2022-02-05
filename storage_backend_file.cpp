@@ -16,7 +16,10 @@
 #include "yaml-helpers.h"
 
 
-storage_backend_file::storage_backend_file(const std::string & id, const std::string & file, const offset_t size, const int block_size, const bool is_block_dev, const std::vector<mirror *> & mirrors) : storage_backend(id, block_size, mirrors), size(size), file(file)
+storage_backend_file::storage_backend_file(const std::string & id, const std::string & file, const offset_t size, const int block_size, const bool is_block_dev, const std::vector<mirror *> & mirrors) :
+	storage_backend(id, block_size, mirrors),
+	size(size),
+	file(file)
 {
 	fd = open(file.c_str(), O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
 	if (fd == -1)

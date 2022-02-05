@@ -18,7 +18,11 @@
 #include "yaml-helpers.h"
 
 
-storage_backend_dedup::storage_backend_dedup(const std::string & id, const std::string & file, hash *const h, compresser *const c, const std::vector<mirror *> & mirrors, const offset_t size, const int block_size) : storage_backend(id, block_size, mirrors), h(h), c(c), size(size), file(file)
+storage_backend_dedup::storage_backend_dedup(const std::string & id, const std::string & file, hash *const h, compresser *const c, const std::vector<mirror *> & mirrors, const offset_t size, const int block_size) :
+	storage_backend(id, block_size, mirrors),
+	h(h), c(c),
+	size(size),
+	file(file)
 {
 	if (!verify_mirror_sizes())
 		throw myformat("storage_backend_dedup(%s): mirrors sanity check failed", file.c_str());

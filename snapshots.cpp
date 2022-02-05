@@ -17,7 +17,10 @@
 #include "yaml-helpers.h"
 
 
-snapshot_state::snapshot_state(storage_backend *const src, const std::string & complete_filename, const int block_size, const bool sparse_files) : src(src), complete_filename(complete_filename), block_size(block_size)
+snapshot_state::snapshot_state(storage_backend *const src, const std::string & complete_filename, const int block_size, const bool sparse_files) :
+	src(src),
+	complete_filename(complete_filename),
+	block_size(block_size)
 {
 	// target file
 	fd = open(complete_filename.c_str(), O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);

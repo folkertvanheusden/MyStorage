@@ -16,7 +16,9 @@
 #include "str.h"
 
 
-socket_listener_ipv4::socket_listener_ipv4(const std::string & listen_addr, const int listen_port) : listen_addr(listen_addr), listen_port(listen_port)
+socket_listener_ipv4::socket_listener_ipv4(const std::string & listen_addr, const int listen_port) :
+	listen_addr(listen_addr),
+	listen_port(listen_port)
 {
 }
 

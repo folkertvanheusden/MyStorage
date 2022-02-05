@@ -17,7 +17,10 @@
 #include "yaml-helpers.h"
 
 
-storage_backend_aoe::storage_backend_aoe(const std::string & id, const std::vector<mirror *> & mirrors, const std::string & dev_name, const uint8_t my_mac[6], const uint16_t major, const uint8_t minor, const int mtu_size, const int block_size) : storage_backend(id, block_size, mirrors), dev_name(dev_name), major(major), minor(minor)
+storage_backend_aoe::storage_backend_aoe(const std::string & id, const std::vector<mirror *> & mirrors, const std::string & dev_name, const uint8_t my_mac[6], const uint16_t major, const uint8_t minor, const int mtu_size, const int block_size) :
+	storage_backend(id, block_size, mirrors),
+	dev_name(dev_name),
+	major(major), minor(minor)
 {
 	memcpy(this->my_mac, my_mac, 6);
 

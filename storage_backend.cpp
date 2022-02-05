@@ -12,7 +12,10 @@
 #include "types.h"
 
 
-storage_backend::storage_backend(const std::string & id, const int block_size, const std::vector<mirror *> & mirrors) : base(id), block_size(block_size), mirrors(mirrors)
+storage_backend::storage_backend(const std::string & id, const int block_size, const std::vector<mirror *> & mirrors) :
+	base(id),
+	block_size(block_size),
+	mirrors(mirrors)
 {
 	for(auto m : mirrors)
 		m->acquire(this);
