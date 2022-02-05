@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <string>
 
+#include "histogram.h"
 #include "lock_group.h"
 #include "mirror.h"
 #include "storage_backend.h"
@@ -35,6 +36,9 @@ private:
 	uint64_t               map_n_entries { 0 };
 	descriptor_bin_t      *map { nullptr };
 
+	histogram             *meta_hist { nullptr };
+	histogram             *slow_hist { nullptr };
+
 	uint64_t hash_block_nr(const uint64_t block_nr);
 
 	bool can_do_multiple_blocks() const override;
@@ -45,6 +49,8 @@ private:
 public:
 	storage_backend_tiering(const std::string & id, storage_backend *const fast_storage, storage_backend *const slow_storage, storage_backend *const meta_storage, const std::vector<mirror *> & mirrors);
 	virtual ~storage_backend_tiering();
+
+	void dump_stats(const std::string & base_filename);
 
 	static std::pair<uint64_t, int> get_meta_dimensions(const offset_t fast_storage_size, const int fast_storage_block_size);
 

@@ -22,6 +22,7 @@ add_executable(mystorage
 	error.cpp
 	hash.cpp
 	hash_sha384.cpp
+	histogram.cpp
 	io.cpp
 	journal.cpp
 	lock_group.cpp
@@ -63,6 +64,7 @@ add_executable(test-mystorage
 	error.cpp
 	hash.cpp
 	hash_sha384.cpp
+	histogram.cpp
 	io.cpp
 	journal.cpp
 	lock_group.cpp

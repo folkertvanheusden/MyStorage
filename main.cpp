@@ -149,8 +149,10 @@ int main(int argc, char *argv[])
 		for(auto srv : modules["servers"])
 			delete srv;
 
-		for(auto sb : modules["storage"])
+		for(auto sb : modules["storage"]) {
+			dynamic_cast<storage_backend *>(sb)->dump_stats("./s-");
 			delete sb;
+		}
 	}
 	catch(const std::string & err) {
 		dolog(ll_error, "main: caught exception \"%s\"", err.c_str());

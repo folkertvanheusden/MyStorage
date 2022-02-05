@@ -38,9 +38,12 @@ protected:
 	virtual bool transaction_start();
 	virtual bool transaction_end();
 
-public:
 	storage_backend(const std::string & id, const int block_size, const std::vector<mirror *> & mirrors);
+
+public:
 	virtual ~storage_backend();
+
+	virtual void dump_stats(const std::string & base_filename);
 
 	virtual offset_t get_size() const = 0;
 	int get_block_size() const;

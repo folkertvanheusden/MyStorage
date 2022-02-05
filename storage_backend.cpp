@@ -296,3 +296,7 @@ bool storage_backend::transaction_end()
 {
 	return true;
 }
+
+void storage_backend::dump_stats(const std::string & base_filename)
+{
+}

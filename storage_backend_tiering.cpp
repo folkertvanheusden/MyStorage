@@ -26,10 +26,16 @@ storage_backend_tiering::storage_backend_tiering(const std::string & id, storage
 
 	if (expecting_n != map_n_entries)
 		throw myformat("storage_backend_tiering: mismatch between expected number of meta-entries (%ld) and configured number (%ld)", expecting_n, map_n_entries);
+
+	meta_hist = new histogram(map_n_entries, 1024);
+	slow_hist = new histogram(slow_storage->get_size() / slow_storage->get_block_size(), 1024);
 }
 
 storage_backend_tiering::~storage_backend_tiering()
 {
+	delete slow_hist;
+	delete meta_hist;
+
 	delete fast_storage;
 	delete slow_storage;
 	delete meta_storage;
@@ -59,6 +65,8 @@ bool storage_backend_tiering::get_block(const block_nr_t block_nr, uint8_t **con
 	// map_index is also the fast-storage index
 	uint64_t map_index = complete_block_nr_hash % map_n_entries;   // TODO make sure every bin gets visited as often as others
 	int      f_s_block_size = fast_storage->get_block_size();
+
+	meta_hist->count(map_index);
 
 	uint64_t now = ++age;
 
@@ -117,6 +125,8 @@ bool storage_backend_tiering::get_block(const block_nr_t block_nr, uint8_t **con
 				ok = false;
 			}
 			else {
+				slow_hist->count(d->d[replace_slot].block_nr_slow_storage);
+
 				// put in slow storage
 				int p_err = 0;
 				slow_storage->put_data(d->d[replace_slot].block_nr_slow_storage * f_s_block_size, *dirty_block, &p_err);
@@ -131,6 +141,8 @@ bool storage_backend_tiering::get_block(const block_nr_t block_nr, uint8_t **con
 
 			delete dirty_block;
 		}
+
+		slow_hist->count(block_nr);
 
 		int g_err = 0;
 		slow_storage->get_data(block_nr * f_s_block_size, f_s_block_size, data, &g_err);
@@ -167,6 +179,8 @@ bool storage_backend_tiering::put_block(const block_nr_t block_nr, const uint8_t
 	// map_index is also the fast-storage index
 	uint64_t map_index = complete_block_nr_hash % map_n_entries;   // TODO make sure every bin gets visited as often as others
 	int      f_s_block_size = fast_storage->get_block_size();
+
+	meta_hist->count(map_index);
 
 	uint64_t now = ++age;
 
@@ -229,6 +243,8 @@ bool storage_backend_tiering::put_block(const block_nr_t block_nr, const uint8_t
 			}
 			else {
 				// put in slow storage
+				slow_hist->count(d->d[replace_slot].block_nr_slow_storage);
+
 				int p_err = 0;
 				slow_storage->put_data(d->d[replace_slot].block_nr_slow_storage * f_s_block_size, *dirty_block, &p_err);
 				if (p_err) {
@@ -248,7 +264,7 @@ bool storage_backend_tiering::put_block(const block_nr_t block_nr, const uint8_t
 		int p_err = 0;
 		fast_storage->put_data(map_index * f_s_block_size, new_data, &p_err);
 		if (p_err) {
-			dolog(ll_error, "storage_backend_tiering::put_block(%s): failed storing block in fast storage (%s): %s", id.c_str(), slow_storage->get_id().c_str(), strerror(p_err));
+			dolog(ll_error, "storage_backend_tiering::put_block(%s): failed storing block in fast storage (%s): %s", id.c_str(), fast_storage->get_id().c_str(), strerror(p_err));
 			ok = false;
 		}
 		else {
@@ -413,4 +429,11 @@ storage_backend_tiering * storage_backend_tiering::load_configuration(const YAML
 	storage_backend *meta = storage_backend::load_configuration(cfg["storage-backend-meta"], md.first * md.second, md.second);
 
 	return new storage_backend_tiering(id, sb_fast, sb_slow, meta, mirrors);
+}
+
+void storage_backend_tiering::dump_stats(const std::string & base_filename)
+{
+	meta_hist->dump(base_filename + id + "_meta-histogram.dat");
+
+	slow_hist->dump(base_filename + id + "_slow-histogram.dat");
 }
