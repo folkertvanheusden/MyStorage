@@ -22,10 +22,15 @@ storage_backend_tiering::storage_backend_tiering(const std::string & id, storage
 
 	dolog(ll_debug, "storage_backend_tiering(%s): %ld meta data slots", id.c_str(), map_n_entries);
 
-	uint64_t expecting_n = get_meta_dimensions(fast_storage->get_size(), fast_storage->get_block_size()).first;
+	auto md = get_meta_dimensions(fast_storage->get_size(), fast_storage->get_block_size());
+	uint64_t expecting_n = md.first;
 
-	if (expecting_n != map_n_entries)
-		throw myformat("storage_backend_tiering: mismatch between expected number of meta-entries (%ld) and configured number (%ld)", expecting_n, map_n_entries);
+	if (expecting_n != map_n_entries) {
+		if (expecting_n > map_n_entries)
+			throw myformat("storage_backend_tiering: meta storage too small, must be at least %ld bytes", expecting_n, expecting_n * md.second);
+
+		dolog(ll_info, "storage_backend_tiering: mismatch between expected number of meta-entries (%ld) and configured number (%ld)", expecting_n, map_n_entries);
+	}
 
 	meta_hist = new histogram(map_n_entries, 1024);
 	slow_hist = new histogram(slow_storage->get_size() / slow_storage->get_block_size(), 1024);
